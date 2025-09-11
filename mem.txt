@@ -1,0 +1,7 @@
+can we make a lil bit different not popup but like an app on the right side of the screen?) how is it 
+  calls ?? do you know??
+
+● Yes! You're thinking of a Chrome Extension Side Panel! 🎉
+
+  It's called a Side Panel (introduced in Chrome Extensions Manifest V3). Instead of a small popup, you
+  get a full-height panel on the right side of the browser that stays open.
