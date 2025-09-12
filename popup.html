@@ -2,6 +2,11 @@
 <html>
 
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="bootstrap.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -90,9 +95,8 @@
                                     </div>
                                 </div>
                                 
-                                <div class="text-center">
-                                    <button class="btn btn-outline-52BAD3 mr-2"
-                                        id="clearAllFieldsIndividual">Очистить</button>
+                                <div class="btn-container">
+                                    <button class="btn btn-outline-52BAD3" id="clearAllFieldsIndividual">Очистить</button>
                                     <button class="btn btn-info" id="sendMessageIndividual">Отправить</button>
                                     <button class="btn btn-danger" id="stopSendingIndividual" style="display: none;">Остановить</button>
                                 </div>
@@ -111,15 +115,19 @@
                                         <span class="input-icon" style="top: 20px; transform: none;">📋</span>
                                     </div>
                                 </div>
-                                <span class="link-download-csv">
-                                    <a
-                                        href="https://promoteroute.com/wp-content/uploads/2019/11/PromoteRoute_Sample_CSV.csv" target="_blank">Пример CSV</a>
-                                </span>
-                                <button class="btn position-relative bg-EF6C5C text-white btn-position"
-                                    id="btnUploadNumbersButton">
-                                    <img src=".\images\Upload.png" class="imgUpload" alt="upload">
-                                    Загрузить CSV</button>
-                                <input style="display: none;" id="inputUploadNumbers" type="file">
+                                <div class="upload-section">
+                                    <span class="link-download-csv">
+                                        <a href="https://promoteroute.com/wp-content/uploads/2019/11/PromoteRoute_Sample_CSV.csv" target="_blank">Пример CSV</a>
+                                    </span>
+                                    <button class="btn bg-EF6C5C text-white btn-position" id="btnUploadNumbersButton">
+                                        <img src=".\images\Upload.png" class="imgUpload" alt="upload">
+                                        Загрузить CSV
+                                    </button>
+                                    <input style="display: none;" id="inputUploadNumbers" type="file">
+                                    <button class="btn btn-outline-EF6C5C btn-position" id="btnCheckRecentNumbers">
+                                        🔍 Проверить номера
+                                    </button>
+                                </div>
 
                                 <div class="pt-2">
                                     <div class="mb-2">
@@ -172,8 +180,8 @@
                                     </div>
                                 </div>
 
-                                <div class="text-center">
-                                    <button class="btn btn-outline-52BAD3 mr-2" id="clearAllFieldsBulk">Очистить</button>
+                                <div class="btn-container">
+                                    <button class="btn btn-outline-52BAD3" id="clearAllFieldsBulk">Очистить</button>
                                     <button class="btn btn-info" id="sendMessageBulk">Отправить</button>
                                     <button class="btn btn-danger" id="stopSending" style="display: none;">Остановить</button>
                                 </div>

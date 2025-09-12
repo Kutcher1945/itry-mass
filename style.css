@@ -5,6 +5,10 @@
     width: 100%;
     min-height: 100vh;
     padding: 0 10px;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    position: relative;
 }
 
 /* Side panel specific styles */
@@ -16,16 +20,31 @@ html, body {
   overflow-x: hidden;
   background: linear-gradient(135deg, #283353 0%, #1e263e 50%, #0e121d 100%);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Improved text rendering */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* Prevent horizontal scrolling */
+  overflow-x: hidden;
+  /* Ensure proper viewport handling */
+  min-height: 100vh;
+  position: relative;
 }
 
 .row {
   margin: 0;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .col-12 {
   width: 100%;
+  max-width: 100%;
   padding: 5px;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .nav-link {
@@ -164,8 +183,11 @@ button:active {
 }
 
 .btn-position{
+    position: relative;
     top: 5px;
     left: 111px;
+    display: inline-block;
+    box-sizing: border-box;
 }
 
 .btn-info {
@@ -260,9 +282,11 @@ a:hover{
 
 .bulk-text-area {
     height: 4em !important;
-    width: 24.5em;
+    width: 100% !important;
+    max-width: 100% !important;
     overflow-x: auto;
-    white-space: nowrap;
+    white-space: pre-wrap !important;
+    box-sizing: border-box !important;
 }
 
 .link-download-csv {
@@ -676,18 +700,554 @@ small.text-muted {
     margin: 15px 0;
 }
 
-/* Responsive adjustments for smaller containers */
-@media (max-width: 768px) {
-    .card-height {
+/* COMPREHENSIVE RESPONSIVE DESIGN */
+
+/* Extra Small Devices - Mobile Portrait (320px - 479px) */
+@media (max-width: 479px) {
+    html, body {
+        min-width: 320px;
+        font-size: 14px;
+        /* Prevent horizontal scrolling */
+        overflow-x: hidden;
+        /* Improve text readability */
+        -webkit-text-size-adjust: 100%;
+    }
+    
+    .main-container {
+        padding: 0 5px;
+        min-height: auto;
+    }
+    
+    .logo-container {
+        margin: 10px 5px;
         padding: 15px;
+        border-radius: 15px;
+    }
+    
+    .logo-link img {
+        width: 140px;
+        max-width: 100%;
+    }
+    
+    .card-height {
+        padding: 12px;
+        border-radius: 15px;
+        margin: 5px;
+    }
+    
+    .nav-justified {
+        padding: 4px;
+        border-radius: 12px;
+    }
+    
+    .nav-link {
+        padding: 8px 4px;
+        font-size: 13px;
+        border-radius: 8px;
+        /* Ensure proper touch targets */
+        min-height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
     }
     
     .tab-content {
-        padding: 10px 0;
+        padding: 8px 0;
     }
     
     .tab-pane {
-        padding: 5px 0;
+        padding: 4px 0;
+    }
+    
+    .input-group-with-icon {
+        margin: 12px 0;
+    }
+    
+    .form-control {
+        font-size: 14px !important;
+        padding: 12px 16px !important;
+        border-radius: 12px !important;
+    }
+    
+    .input-group-with-icon .form-control {
+        padding-left: 40px !important;
+        padding-right: 16px !important;
+    }
+    
+    .input-group-with-icon .input-icon {
+        left: 12px;
+        font-size: 16px;
+    }
+    
+    label {
+        font-size: 12px;
+        padding: 6px 12px;
+        border-radius: 8px;
+    }
+    
+    button {
+        padding: 12px;
+        font-size: 13px;
+        border-radius: 10px;
+        margin: 3px;
+    }
+    
+    .btn {
+        min-height: 42px;
+        touch-action: manipulation;
+    }
+    
+    .text-center .btn {
+        margin: 3px 2px;
+        width: auto;
+        min-width: 80px;
+    }
+    
+    .btn-position {
+        position: static !important;
+        left: auto !important;
+        top: auto !important;
+        display: inline-block;
+        margin: 5px 2px;
+        width: calc(50% - 4px);
+    }
+    
+    .bulk-text-area {
+        height: 100px !important;
+        font-size: 14px;
+    }
+    
+    .mb-3 {
+        margin-bottom: 0.75rem !important;
+    }
+    
+    .typing-simulation-box {
+        padding: 12px;
+        border-radius: 10px;
+    }
+    
+    .typing-text {
+        font-size: 13px;
+        padding: 10px;
+    }
+    
+    .progress {
+        height: 8px;
+    }
+    
+    .link-download-csv {
+        position: static;
+        display: block;
+        margin: 8px 0;
+        text-align: center;
+        width: 100%;
+        order: -1;
+    }
+    
+    .upload-section {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    
+    .upload-section .btn {
+        width: 100%;
+        margin: 2px 0;
+        text-align: center;
+        justify-content: center;
+        display: flex;
+        align-items: center;
+    }
+}
+
+/* Small Devices - Mobile Landscape & Portrait Tablets (480px - 767px) */
+@media (min-width: 480px) and (max-width: 767px) {
+    .main-container {
+        padding: 0 8px;
+    }
+    
+    .logo-container {
+        margin: 15px 8px;
+        padding: 18px;
+    }
+    
+    .logo-link img {
+        width: 160px;
+        max-width: 100%;
+    }
+    
+    .card-height {
+        padding: 15px;
+        border-radius: 18px;
+    }
+    
+    .nav-justified {
+        padding: 6px;
+    }
+    
+    .nav-link {
+        padding: 10px 8px;
+        font-size: 14px;
+    }
+    
+    .form-control {
+        font-size: 15px !important;
+        padding: 14px 18px !important;
+    }
+    
+    .input-group-with-icon .form-control {
+        padding-left: 45px !important;
+    }
+    
+    .input-group-with-icon .input-icon {
+        left: 14px;
+        font-size: 17px;
+    }
+    
+    label {
+        font-size: 13px;
+        padding: 7px 14px;
+    }
+    
+    button {
+        font-size: 14px;
+        padding: 13px;
+    }
+    
+    .btn-position {
+        position: relative;
+        left: auto;
+        top: 5px;
+        display: inline-block;
+        margin: 5px;
+    }
+    
+    .bulk-text-area {
+        height: 110px !important;
+    }
+    
+    .typing-simulation-box {
+        padding: 14px;
+    }
+}
+
+/* Medium Devices - Tablets (768px - 991px) */
+@media (min-width: 768px) and (max-width: 991px) {
+    .card-height {
+        padding: 18px;
+    }
+    
+    .tab-content {
+        padding: 12px 0;
+    }
+    
+    .tab-pane {
+        padding: 6px 0;
+    }
+    
+    .logo-link img {
+        width: 180px;
+    }
+    
+    .form-control {
+        font-size: 15px !important;
+    }
+    
+    .btn-position {
+        left: 150px;
+    }
+}
+
+/* Large Devices - Desktops (992px - 1199px) */
+@media (min-width: 992px) and (max-width: 1199px) {
+    .logo-link img {
+        width: 190px;
+    }
+    
+    .btn-position {
+        left: 130px;
+    }
+}
+
+/* Extra Large Devices - Large Desktops (1200px and up) */
+@media (min-width: 1200px) {
+    .logo-link img {
+        width: 200px;
+    }
+    
+    .card-height {
+        padding: 25px;
+    }
+    
+    .btn-position {
+        left: 111px;
+    }
+}
+
+/* High DPI / Retina Displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .form-control,
+    input,
+    textarea {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+    
+    button {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+}
+
+/* Landscape Orientation Adjustments */
+@media (orientation: landscape) and (max-height: 600px) {
+    .logo-container {
+        margin: 8px 15px;
+        padding: 12px;
+    }
+    
+    .logo-link img {
+        width: 120px;
+    }
+    
+    .card-height {
+        padding: 12px;
+    }
+    
+    .bulk-text-area {
+        height: 80px !important;
+    }
+    
+    .typing-simulation-box {
+        padding: 10px;
+    }
+    
+    .nav-link {
+        padding: 6px 8px;
+    }
+}
+
+/* Touch Device Optimizations */
+@media (pointer: coarse) {
+    .btn {
+        min-height: 44px; /* Apple's recommended minimum touch target */
+        min-width: 44px;
+        padding: 12px 16px;
+        touch-action: manipulation;
+    }
+    
+    .nav-link {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        touch-action: manipulation;
+    }
+    
+    .form-control {
+        min-height: 44px !important;
+        touch-action: manipulation;
+    }
+    
+    .form-check-input {
+        width: 24px;
+        height: 24px;
+        touch-action: manipulation;
+    }
+    
+    /* Larger tap targets for small screens */
+    @media (max-width: 767px) {
+        .btn {
+            min-height: 48px;
+            font-size: 14px;
+        }
+        
+        .nav-link {
+            min-height: 48px;
+        }
+        
+        .form-control {
+            min-height: 48px !important;
+            font-size: 16px !important; /* Prevents zoom on iOS */
+        }
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    /* The existing dark theme is already implemented */
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+    
+    .typing-cursor {
+        animation: none;
+    }
+    
+    .typing-icon {
+        animation: none;
+    }
+    
+    .progress-bar {
+        animation: none;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .logo-container,
+    .card-height,
+    .btn,
+    button {
+        box-shadow: none !important;
+        background: white !important;
+        color: black !important;
+    }
+    
+    .nav-link {
+        background: none !important;
+        color: black !important;
+    }
+    
+    .typing-simulation-box,
+    #progressContainer {
+        display: none !important;
+    }
+}
+
+/* Additional Responsive Utilities */
+.w-100 {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+.flex-wrap {
+    flex-wrap: wrap !important;
+}
+
+.d-flex {
+    display: flex !important;
+}
+
+.justify-content-center {
+    justify-content: center !important;
+}
+
+.align-items-center {
+    align-items: center !important;
+}
+
+/* Responsive Text Sizing */
+@media (max-width: 575px) {
+    h1, h2, h3, h4, h5, h6 {
+        font-size: calc(1rem + 0.5vw);
+    }
+    
+    .nav-link {
+        font-size: calc(0.8rem + 0.2vw);
+    }
+    
+    .btn {
+        font-size: calc(0.8rem + 0.2vw);
+    }
+    
+    label {
+        font-size: calc(0.7rem + 0.2vw);
+    }
+}
+
+/* Flexible Button Container */
+.btn-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    margin: 10px 0;
+}
+
+@media (max-width: 575px) {
+    .btn-container {
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .btn-container .btn {
+        width: 100%;
+        max-width: 280px;
+        margin: 2px 0;
+    }
+}
+
+/* Responsive Upload Section */
+.upload-section {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: flex-start;
+    margin: 10px 0;
+}
+
+@media (max-width: 767px) {
+    .upload-section {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    
+    .upload-section .btn {
+        width: 100%;
+        margin: 0;
+        text-align: center;
+    }
+    
+    .link-download-csv {
+        text-align: center;
+        margin: 8px 0;
+        order: -1;
+    }
+}
+
+/* Container Max-Width Control */
+@media (min-width: 1400px) {
+    .main-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+}
+
+/* Improved Focus States for Accessibility */
+@media (prefers-reduced-motion: no-preference) {
+    .btn:focus,
+    .nav-link:focus,
+    .form-control:focus {
+        outline: 3px solid rgba(55, 114, 255, 0.4);
+        outline-offset: 2px;
+    }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+    .form-control {
+        border-width: 3px !important;
+        border-color: #000 !important;
+    }
+    
+    .btn {
+        border: 2px solid #000 !important;
+    }
+    
+    .nav-link {
+        border: 1px solid #000 !important;
     }
 }
 
@@ -997,10 +1557,9 @@ ul li {
 .input-group-with-icon {
     position: relative;
     margin: 20px 0;
-}
-
-.input-group-with-icon {
-    position: relative;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .input-group-with-icon .form-control {

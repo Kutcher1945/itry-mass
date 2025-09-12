@@ -14,6 +14,10 @@ const KEY_CURRENT_MSG_INDIVIDUAL = "KEY_CURRENT_MSG_INDIVIDUAL";
 const KEY_PHONE_NUMBER = "KEY_PHONE_NUMBER";
 const KEY_CURRENT_MSG = "KEY_CURRENT_MSG";
 
+// Message History Tracking
+const KEY_MESSAGE_HISTORY = "KEY_MESSAGE_HISTORY";
+const SKIP_DAYS = 3; // Skip numbers contacted in past 3 days
+
 // Stop flags for message sending
 let stopSendingBulk = false;
 let stopSendingIndividual = false;
@@ -21,6 +25,175 @@ let stopSendingIndividual = false;
 // Human-like typing simulation functions
 function getRandomDelay(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+// Message History Management Functions
+async function addToMessageHistory(phoneNumber, message) {
+    try {
+        const history = await getMessageHistory();
+        const timestamp = Date.now();
+        
+        // Add new entry
+        history[phoneNumber] = {
+            lastSent: timestamp,
+            message: message.substring(0, 100), // Store first 100 chars for reference
+            count: (history[phoneNumber]?.count || 0) + 1
+        };
+        
+        // Clean up old entries (older than SKIP_DAYS)
+        const cutoffTime = timestamp - (SKIP_DAYS * 24 * 60 * 60 * 1000);
+        Object.keys(history).forEach(number => {
+            if (history[number].lastSent < cutoffTime) {
+                delete history[number];
+            }
+        });
+        
+        // Save updated history
+        await new Promise(resolve => {
+            chrome.storage.local.set({[KEY_MESSAGE_HISTORY]: JSON.stringify(history)}, resolve);
+        });
+        
+        console.log(`📝 Added ${phoneNumber} to message history`);
+    } catch (error) {
+        console.error('Error adding to message history:', error);
+    }
+}
+
+async function getMessageHistory() {
+    try {
+        const result = await new Promise(resolve => {
+            chrome.storage.local.get(KEY_MESSAGE_HISTORY, resolve);
+        });
+        
+        const historyStr = result[KEY_MESSAGE_HISTORY];
+        return historyStr ? JSON.parse(historyStr) : {};
+    } catch (error) {
+        console.error('Error getting message history:', error);
+        return {};
+    }
+}
+
+async function shouldSkipNumber(phoneNumber) {
+    try {
+        const history = await getMessageHistory();
+        const entry = history[phoneNumber];
+        
+        if (!entry) {
+            return false; // No history, don't skip
+        }
+        
+        const daysSince = (Date.now() - entry.lastSent) / (24 * 60 * 60 * 1000);
+        const shouldSkip = daysSince < SKIP_DAYS;
+        
+        if (shouldSkip) {
+            console.log(`⏭️  Skipping ${phoneNumber} - contacted ${daysSince.toFixed(1)} days ago`);
+        }
+        
+        return shouldSkip;
+    } catch (error) {
+        console.error('Error checking if should skip number:', error);
+        return false; // If error, don't skip
+    }
+}
+
+async function getSkippedNumbers(phoneNumbers) {
+    const skipped = [];
+    const toSend = [];
+    
+    for (const numberData of phoneNumbers) {
+        const phoneNumber = typeof numberData === 'string' ? numberData : numberData.number;
+        
+        if (await shouldSkipNumber(phoneNumber)) {
+            skipped.push(numberData);
+        } else {
+            toSend.push(numberData);
+        }
+    }
+    
+    return { skipped, toSend };
+}
+
+// Manual Checker Functions
+async function checkAndRemoveRecentNumbers() {
+    try {
+        const rawInput = $("#inputNumbersBulk").val();
+        if (!rawInput.trim()) {
+            alert("Сначала введите номера телефонов для проверки.");
+            return;
+        }
+        
+        console.log("🔍 Checking numbers for recent contacts...");
+        
+        // Parse current input
+        const inputLines = rawInput.split("\n");
+        const allNumbers = [];
+        
+        inputLines.forEach(line => {
+            const trimmedLine = line.trim();
+            if (!trimmedLine) return;
+            
+            const splitValue = trimmedLine.split(",");
+            const phoneNumber = splitValue[0] ? splitValue[0].trim().replace('+', '') : '';
+            
+            if (phoneNumber && phoneNumber.replace(/\D/g, '').length >= 7) {
+                allNumbers.push({
+                    originalLine: line,
+                    number: phoneNumber,
+                    valueOne: splitValue[1] ? splitValue[1].trim() : '',
+                    valueTwo: splitValue[2] ? splitValue[2].trim() : ''
+                });
+            }
+        });
+        
+        if (allNumbers.length === 0) {
+            alert("Не найдено валидных номеров телефонов.");
+            return;
+        }
+        
+        // Check against message history
+        const { skipped, toSend } = await getSkippedNumbers(allNumbers);
+        
+        if (skipped.length === 0) {
+            alert(`✅ Отлично! Все ${allNumbers.length} номеров готовы к отправке.\nНикто из них не получал сообщения в последние ${SKIP_DAYS} дня.`);
+            return;
+        }
+        
+        // Show detailed results
+        let message = `📊 Результаты проверки:\n\n`;
+        message += `📱 Всего номеров: ${allNumbers.length}\n`;
+        message += `✅ Готовы к отправке: ${toSend.length}\n`;
+        message += `⏭️  Недавно контактировали: ${skipped.length}\n\n`;
+        
+        if (skipped.length > 0) {
+            message += `Номера для удаления (контакт в последние ${SKIP_DAYS} дня):\n`;
+            skipped.forEach((item, index) => {
+                const number = typeof item === 'string' ? item : item.number;
+                message += `${index + 1}. ${number}\n`;
+            });
+            message += `\nУдалить эти номера из списка?`;
+        }
+        
+        const shouldRemove = confirm(message);
+        
+        if (shouldRemove) {
+            // Reconstruct input with only non-skipped numbers
+            const newLines = toSend.map(item => item.originalLine);
+            const newInput = newLines.join('\n');
+            
+            $("#inputNumbersBulk").val(newInput);
+            
+            // Trigger input event to update internal arrays
+            $("#inputNumbersBulk").trigger('input');
+            
+            alert(`✅ Готово!\n\nУдалено: ${skipped.length} номеров\nОсталось: ${toSend.length} номеров\n\nСписок обновлен и готов к отправке.`);
+            
+            console.log(`🧹 Removed ${skipped.length} recent contacts, ${toSend.length} numbers remaining`);
+        }
+        
+    } catch (error) {
+        console.error("❌ Error checking recent numbers:", error);
+        alert("Произошла ошибка при проверке номеров. Попробуйте снова.");
+    }
 }
 
 // Typing personality profiles - BALANCED SPEED
@@ -625,6 +798,8 @@ function updateIndividualMessageView() {
 
 async function sendToBulkOneByOne(data, msgBulk, baseDelay, useVariations = false) {
     console.log(`🚀 Starting one-by-one send for ${data.length} messages`);
+    console.log(`💡 Tip: Use "🔍 Проверить номера" button to remove recently contacted numbers before sending`);
+    
     stopSendingBulk = false;
     showProgress(0, data.length);
     
@@ -712,6 +887,9 @@ async function sendToBulkOneByOne(data, msgBulk, baseDelay, useVariations = fals
                 });
 
                 console.log(`✅ Message sent to ${data[i].number}:`, response);
+                
+                // Add to message history after successful send
+                await addToMessageHistory(data[i].number, newMessage);
 
             } catch (error) {
                 console.error(`❌ Error sending to ${data[i].number}:`, error);
@@ -816,6 +994,10 @@ function addEventListenersBulkMessageView() {
         document.getElementById("inputUploadNumbers").click();
         updateView();
     });
+    
+    $("#btnCheckRecentNumbers").click(async function () {
+        await checkAndRemoveRecentNumbers();
+    });
     $("#inputUploadNumbers").on("change", function () {
         const file = $(this)[0].files[0];
         var fr = new FileReader;
@@ -846,6 +1028,8 @@ function addEventListenersBulkMessageView() {
 
 async function sendMessageToIndividual(index, data, msgIndividual, delay) {
     console.log(`🚀 Starting individual message send`);
+    const phoneNumber = data[index];
+    
     stopSendingIndividual = false;
     
     // Show stop button and hide send button
@@ -890,6 +1074,9 @@ async function sendMessageToIndividual(index, data, msgIndividual, delay) {
         });
         
         console.log(`✅ Individual message sent successfully`);
+        
+        // Add to message history after successful send
+        await addToMessageHistory(phoneNumber, msgIndividual);
         
     } catch (error) {
         console.error(`❌ Error sending individual message:`, error);
