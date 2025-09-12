@@ -7,9 +7,10 @@
     "permissions": [
         "tabs",
         "storage",
-        "activeTab",
+        "activeTab", 
         "notifications",
-        "scripting"
+        "scripting",
+        "sidePanel"
     ],
     "host_permissions": [
         "http://*/*",
@@ -19,9 +20,10 @@
         "service_worker": "background.js"
     },
     "action": {
-        "default_popup": "popup.html",
         "default_title": "WhatsHelper"
-
+    },
+    "side_panel": {
+        "default_path": "popup.html"
     },
     "content_scripts": [{
         "matches": ["<all_urls>"],

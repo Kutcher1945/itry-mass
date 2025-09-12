@@ -14,6 +14,245 @@ const KEY_CURRENT_MSG_INDIVIDUAL = "KEY_CURRENT_MSG_INDIVIDUAL";
 const KEY_PHONE_NUMBER = "KEY_PHONE_NUMBER";
 const KEY_CURRENT_MSG = "KEY_CURRENT_MSG";
 
+// Stop flags for message sending
+let stopSendingBulk = false;
+let stopSendingIndividual = false;
+
+// Human-like typing simulation functions
+function getRandomDelay(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+// Typing personality profiles - BALANCED SPEED
+const TYPING_PERSONALITIES = {
+    FAST: {
+        name: "Быстрый печатник",
+        shortWords: [25, 45],     // Fast but not too fast
+        mediumWords: [35, 60],    // Fast but not too fast
+        longWords: [40, 75],      // Fast but not too fast
+        pauseChance: 0.08,        // Few pauses (8%)
+        pauseTime: [80, 200],     // Short pauses
+        thinkingTime: [400, 800]  // Quick thinking
+    },
+    MEDIUM: {
+        name: "Обычный печатник", 
+        shortWords: [35, 55],     // Moderate speed
+        mediumWords: [45, 75],    // Moderate speed
+        longWords: [55, 95],      // Moderate speed
+        pauseChance: 0.12,        // Some pauses (12%)
+        pauseTime: [150, 350],    // Medium pauses
+        thinkingTime: [600, 1200] // Normal thinking
+    },
+    SLOW: {
+        name: "Медленный печатник",
+        shortWords: [50, 85],     // Slower but reasonable
+        mediumWords: [65, 110],   // Slower but reasonable
+        longWords: [80, 140],     // Slower but reasonable
+        pauseChance: 0.18,        // More pauses (18%)
+        pauseTime: [200, 500],    // Medium pauses
+        thinkingTime: [800, 1500] // More thinking
+    },
+    INCONSISTENT: {
+        name: "Непостоянный печатник",
+        shortWords: [25, 70],     // Variable speed
+        mediumWords: [35, 90],    // Variable speed
+        longWords: [45, 120],     // Variable speed
+        pauseChance: 0.15,        // Some pauses (15%)
+        pauseTime: [120, 400],    // Variable pauses
+        thinkingTime: [500, 1100] // Variable thinking
+    }
+};
+
+// Select random typing personality
+function getRandomTypingPersonality() {
+    const personalities = Object.keys(TYPING_PERSONALITIES);
+    const weights = [25, 40, 20, 15]; // Fast: 25%, Medium: 40%, Slow: 20%, Inconsistent: 15%
+    
+    const random = Math.random() * 100;
+    let cumulative = 0;
+    
+    for (let i = 0; i < personalities.length; i++) {
+        cumulative += weights[i];
+        if (random <= cumulative) {
+            return personalities[i];
+        }
+    }
+    
+    return 'MEDIUM'; // Fallback
+}
+
+function getTypingSpeed(word, personality = 'MEDIUM') {
+    const profile = TYPING_PERSONALITIES[personality];
+    const wordLength = word.length;
+    
+    let speedRange;
+    if (wordLength <= 3) {
+        speedRange = profile.shortWords;
+    } else if (wordLength <= 7) {
+        speedRange = profile.mediumWords;
+    } else {
+        speedRange = profile.longWords;
+    }
+    
+    return getRandomDelay(speedRange[0], speedRange[1]);
+}
+
+function simulateHumanPauses(personality = 'MEDIUM') {
+    const profile = TYPING_PERSONALITIES[personality];
+    return getRandomDelay(profile.thinkingTime[0], profile.thinkingTime[1]);
+}
+
+function calculateMessageTypingTime(message, personality = 'MEDIUM') {
+    const profile = TYPING_PERSONALITIES[personality];
+    const words = message.split(' ');
+    let totalTime = 0;
+    
+    words.forEach((word, index) => {
+        // Add typing time for each character in the word
+        for (let i = 0; i < word.length; i++) {
+            totalTime += getTypingSpeed(word, personality);
+        }
+        
+        // Add space typing time (balanced)
+        if (index < words.length - 1) {
+            totalTime += getRandomDelay(20, 40);
+        }
+        
+        // Random pauses between some words based on personality
+        if (Math.random() < profile.pauseChance) {
+            totalTime += getRandomDelay(profile.pauseTime[0], profile.pauseTime[1]);
+        }
+    });
+    
+    return totalTime;
+}
+
+// Typing Animation Functions
+function showTypingAnimation(phoneNumber, message) {
+    $("#typingContainer").show();
+    $("#currentNumber").text(phoneNumber);
+    $("#typingText").html('<span class="typing-cursor">|</span>');
+    $("#typingStatus").text("Думаю...");
+    $("#typingStatus").addClass("typing-thinking typing-dots");
+}
+
+function hideTypingAnimation() {
+    $("#typingContainer").hide();
+    $("#typingStatus").removeClass("typing-thinking typing-dots typing-paused");
+}
+
+function startThinkingAnimation() {
+    $("#typingStatus").text("Думаю").addClass("typing-thinking typing-dots");
+}
+
+function startTypingAnimation() {
+    $("#typingStatus").text("Печатаю сообщение...").removeClass("typing-thinking typing-dots");
+}
+
+function updateCursorPosition() {
+    const typingText = document.getElementById('typingText');
+    const cursor = document.getElementById('typingCursor');
+    
+    if (typingText && cursor) {
+        // Simply append cursor to the text content - much simpler and always accurate
+        if (!typingText.innerHTML.includes('<span class="typing-cursor"')) {
+            typingText.innerHTML = typingText.textContent + '<span class="typing-cursor" id="typingCursor">|</span>';
+        }
+    }
+}
+
+async function animateTypingWithPersonality(message, phoneNumber) {
+    return new Promise(async (resolve) => {
+        // Pick random typing personality for this message
+        const personality = getRandomTypingPersonality();
+        const profile = TYPING_PERSONALITIES[personality];
+        
+        console.log(`🎭 Using typing personality: ${profile.name} for ${phoneNumber}`);
+        
+        showTypingAnimation(phoneNumber, message);
+        
+        // Show personality in interface
+        $("#typingStatus").text(`${profile.name} - Думаю`).addClass("typing-thinking typing-dots");
+        
+        // Thinking phase with personality-based timing
+        const thinkingTime = simulateHumanPauses(personality);
+        await new Promise(r => setTimeout(r, thinkingTime));
+        
+        if (stopSendingBulk || stopSendingIndividual) {
+            hideTypingAnimation();
+            resolve({ personality, typingTime: 0, thinkingTime });
+            return;
+        }
+        
+        // Start typing phase
+        $("#typingStatus").text(`${profile.name} - Печатаю сообщение...`).removeClass("typing-thinking typing-dots");
+        const typingTextElement = document.getElementById('typingText');
+        let currentText = "";
+        let actualTypingTime = 0;
+        
+        const words = message.split(' ');
+        
+        for (let wordIndex = 0; wordIndex < words.length; wordIndex++) {
+            const word = words[wordIndex];
+            
+            // Type each character of the word with personality-based speed
+            for (let charIndex = 0; charIndex < word.length; charIndex++) {
+                if (stopSendingBulk || stopSendingIndividual) {
+                    hideTypingAnimation();
+                    resolve({ personality, typingTime: actualTypingTime, thinkingTime });
+                    return;
+                }
+                
+                currentText += word[charIndex];
+                typingTextElement.innerHTML = currentText + '<span class="typing-cursor">|</span>';
+                
+                // Wait based on personality and word length
+                const charDelay = getTypingSpeed(word, personality);
+                actualTypingTime += charDelay;
+                await new Promise(r => setTimeout(r, charDelay));
+            }
+            
+            // Add space if not the last word
+            if (wordIndex < words.length - 1) {
+                currentText += ' ';
+                typingTextElement.innerHTML = currentText + '<span class="typing-cursor">|</span>';
+                
+                // Space typing delay (balanced)
+                const spaceDelay = getRandomDelay(20, 40);
+                actualTypingTime += spaceDelay;
+                await new Promise(r => setTimeout(r, spaceDelay));
+                
+                // Random pause between words based on personality
+                if (Math.random() < profile.pauseChance) {
+                    $("#typingStatus").text(`${profile.name} - Пауза...`).addClass("typing-paused");
+                    const wordPause = getRandomDelay(profile.pauseTime[0], profile.pauseTime[1]);
+                    actualTypingTime += wordPause;
+                    await new Promise(r => setTimeout(r, wordPause));
+                    $("#typingStatus").text(`${profile.name} - Печатаю сообщение...`).removeClass("typing-paused");
+                }
+            }
+        }
+        
+        // Finished typing
+        $("#typingStatus").text(`${profile.name} - Отправляю...`);
+        await new Promise(r => setTimeout(r, 400)); // Small delay before hiding (balanced)
+        
+        hideTypingAnimation();
+        resolve({ 
+            personality, 
+            typingTime: actualTypingTime, 
+            thinkingTime,
+            personalityName: profile.name 
+        });
+    });
+}
+
+// Legacy function for backward compatibility
+async function animateTyping(message, phoneNumber) {
+    const result = await animateTypingWithPersonality(message, phoneNumber);
+    return result;
+}
+
 function getStorageInstance() {
     function setStorage(key, value) {
         return new Promise((resolve, reject) => {
@@ -341,12 +580,16 @@ function updateBulkMessageView() {
         })
     }
     $("#inputNumbersBulk").val(strInputNumberBulk);
-    if (phoneNumbersBulk.length === 0) {
-        $("#sendMessageBulk").prop("disabled", true)
+    // Check the actual data that will be used for sending
+    if (!phoneNumberSendToBulk || phoneNumberSendToBulk.length === 0) {
+        $("#sendMessageBulk").prop("disabled", true);
+        console.log("📵 Send button disabled - no valid phone numbers in phoneNumberSendToBulk");
     } else if (!msgBulk || msgBulk.trim().length === 0) {
-        $("#sendMessageBulk").prop("disabled", true)
+        $("#sendMessageBulk").prop("disabled", true);
+        console.log("📵 Send button disabled - no message text");
     } else {
-        $("#sendMessageBulk").prop("disabled", false)
+        $("#sendMessageBulk").prop("disabled", false);
+        console.log(`✅ Send button enabled - ${phoneNumberSendToBulk.length} phone numbers and message ready`);
     }
 }
 
@@ -360,12 +603,21 @@ function updateIndividualMessageView() {
         })
     }
     $("#individualMessageTabPhoneNumber").val(strInputNumberIndividual);
-    if (phoneNumberIndividual.length === 0) {
-        $("#sendMessageIndividual").prop("disabled", true)
-    } else if (!msgIndividual || msgIndividual.trim().length === 0) {
-        $("#sendMessageIndividual").prop("disabled", true)
+    
+    // Better validation logic
+    const hasValidNumbers = phoneNumberIndividual && phoneNumberIndividual.length > 0 && 
+                           phoneNumberIndividual.some(num => num && num.trim().replace(/\D/g, '').length >= 7);
+    const hasValidMessage = msgIndividual && msgIndividual.trim().length > 0;
+    
+    if (!hasValidNumbers) {
+        $("#sendMessageIndividual").prop("disabled", true);
+        console.log("📵 Individual send button disabled - no valid phone numbers");
+    } else if (!hasValidMessage) {
+        $("#sendMessageIndividual").prop("disabled", true);
+        console.log("📵 Individual send button disabled - no message text");
     } else {
-        $("#sendMessageIndividual").prop("disabled", false)
+        $("#sendMessageIndividual").prop("disabled", false);
+        console.log(`✅ Individual send button enabled - ${phoneNumberIndividual.length} phone numbers and message ready`);
     }
 }
 
@@ -373,13 +625,19 @@ function updateIndividualMessageView() {
 
 async function sendToBulkOneByOne(data, msgBulk, baseDelay, useVariations = false) {
     console.log(`🚀 Starting one-by-one send for ${data.length} messages`);
+    stopSendingBulk = false;
     showProgress(0, data.length);
+    
+    // Show stop button and hide send button
+    $("#sendMessageBulk").hide();
+    $("#stopSending").show();
 
-    // Set up progress listener for real-time updates
+    // Set up progress listener for real-time updates (disabled to prevent conflicts)
     const progressListener = (message) => {
         if (message.subject === "PROGRESS_UPDATE") {
-            console.log(`📊 Progress update:`, message.data);
-            updateProgress(message.data.current, message.data.total, message.data.number);
+            console.log(`📊 Progress update from content script:`, message.data);
+            // Disabled: updateProgress(message.data.current, message.data.total, message.data.number);
+            // We handle progress locally to avoid conflicts
         }
     };
     
@@ -389,6 +647,12 @@ async function sendToBulkOneByOne(data, msgBulk, baseDelay, useVariations = fals
     try {
         // Process each message one by one: generate → send → generate → send
         for (let i = 0; i < data.length; i++) {
+            // Check if user pressed stop
+            if (stopSendingBulk) {
+                console.log(`🛑 Stopping bulk send at message ${i + 1}/${data.length}`);
+                break;
+            }
+
             console.log(`📝 Processing message ${i + 1}/${data.length} for ${data[i].number}`);
             
             // Generate message for this specific recipient
@@ -406,12 +670,28 @@ async function sendToBulkOneByOne(data, msgBulk, baseDelay, useVariations = fals
                 }
             }
 
-            // Update progress
-            updateProgress(i, data.length, data[i].number);
+            // Check if user pressed stop before sending
+            if (stopSendingBulk) {
+                console.log(`🛑 Stopping bulk send before sending to ${data[i].number}`);
+                break;
+            }
 
-            // Send this single message immediately
+            // Update progress before sending (show current message being processed)
+            updateProgress(i + 1, data.length, data[i].number);
+
+            // Send this single message with visual typing animation
             try {
-                console.log(`📤 Sending message to ${data[i].number}`);
+                console.log(`📤 Sending message to ${data[i].number} with visual typing animation`);
+                
+                // Show typing animation that matches the actual timing
+                const personalityInfo = await animateTypingWithPersonality(newMessage, data[i].number);
+                
+                // Check if user pressed stop during animation
+                if (stopSendingBulk) {
+                    console.log(`🛑 Stopping bulk send during typing animation`);
+                    break;
+                }
+                
                 const response = await sendMsgToActiveTab({
                     from: "home.js",
                     subject: MSG_SEND_MESSAGE,
@@ -420,33 +700,58 @@ async function sendToBulkOneByOne(data, msgBulk, baseDelay, useVariations = fals
                             number: data[i].number,
                             message: newMessage
                         }],
-                        delay: baseDelay
+                        delay: baseDelay,
+                        humanTyping: {
+                            enabled: true,
+                            personality: personalityInfo.personality,
+                            typingTime: personalityInfo.typingTime,
+                            thinkingTime: personalityInfo.thinkingTime,
+                            animated: true // Flag to indicate animation was shown
+                        }
                     }
                 });
 
                 console.log(`✅ Message sent to ${data[i].number}:`, response);
-                
-                // Update progress after sending
-                updateProgress(i + 1, data.length, data[i].number);
 
             } catch (error) {
                 console.error(`❌ Error sending to ${data[i].number}:`, error);
+                hideTypingAnimation(); // Hide animation on error
             }
 
-            // Wait before next message (except for the last one)
-            if (i < data.length - 1) {
-                console.log(`⏰ Waiting ${baseDelay}ms before next message...`);
-                await new Promise(resolve => setTimeout(resolve, baseDelay));
+            // Wait before next message (except for the last one) but check for stop during wait
+            if (i < data.length - 1 && !stopSendingBulk) {
+                // Add random delay between messages (balanced)
+                const randomDelay = getRandomDelay(1500, 3500);
+                console.log(`⏰ Waiting ${randomDelay}ms before next message (balanced delay)...`);
+                
+                // Break the delay into smaller chunks to check for stop more frequently
+                const checkInterval = 500; // Check every 500ms
+                const chunks = Math.ceil(randomDelay / checkInterval);
+                
+                for (let chunk = 0; chunk < chunks; chunk++) {
+                    if (stopSendingBulk) break;
+                    const waitTime = Math.min(checkInterval, randomDelay - (chunk * checkInterval));
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                }
             }
         }
 
-        console.log(`🎉 All ${data.length} messages processed!`);
+        if (stopSendingBulk) {
+            console.log(`🛑 Bulk sending stopped by user`);
+        } else {
+            console.log(`🎉 All ${data.length} messages processed!`);
+        }
         
     } catch (error) {
         console.error(`❌ Error in one-by-one send:`, error);
     } finally {
         // Remove progress listener
         chrome.runtime.onMessage.removeListener(progressListener);
+        
+        // Reset UI
+        $("#stopSending").hide();
+        $("#sendMessageBulk").show();
+        stopSendingBulk = false;
         
         // Final cleanup
         setTimeout(() => {
@@ -464,26 +769,46 @@ function addEventListenersBulkMessageView() {
             sendToBulkOneByOne(phoneNumberSendToBulk, msgBulk, baseDelay, useVariations);
         }
     });
+
+    $("#stopSending").click(function () {
+        console.log("🛑 User clicked stop button for bulk sending");
+        stopSendingBulk = true;
+        $(this).prop("disabled", true).text("Остановка...");
+    });
     $("#inputMessageBulk").on("input", async function () {
         msgBulk = $(this).val();
         await storageInstance.saveCurrentMessageBulk(msgBulk);
         updateView();
     });
-    $("#inputNumbersBulk").on("change", async function () {
-        phoneNumbersBulk = this.value.split("\n");
+    $("#inputNumbersBulk").on("input change paste", async function () {
+        const rawInput = this.value;
+        console.log(`📝 Processing phone number input: "${rawInput}"`);
+        
+        phoneNumbersBulk = rawInput.split("\n");
         phoneNumberSendToBulk = [];
 
         for (i = 0; i < phoneNumbersBulk.length; i++) {
-            const splitedValue = phoneNumbersBulk[i].split(",");
-            if (splitedValue[0]) {
+            const line = phoneNumbersBulk[i].trim();
+            if (!line) continue; // Skip empty lines
+            
+            const splitedValue = line.split(",");
+            const phoneNumber = splitedValue[0] ? splitedValue[0].trim().replace('+', '') : '';
+            
+            // Only add if phone number is not empty and looks valid (at least 7 digits)
+            if (phoneNumber && phoneNumber.replace(/\D/g, '').length >= 7) {
                 const data = {
-                    number: splitedValue[0] ? splitedValue[0].replace('+', '') : '',
-                    valueOne: splitedValue[1] ? splitedValue[1] : '',
-                    valueTwo: splitedValue[2] ? splitedValue[2] : ''
+                    number: phoneNumber,
+                    valueOne: splitedValue[1] ? splitedValue[1].trim() : '',
+                    valueTwo: splitedValue[2] ? splitedValue[2].trim() : ''
                 }
                 phoneNumberSendToBulk.push(data);
+                console.log(`✅ Added valid number: ${phoneNumber}`);
+            } else {
+                console.log(`❌ Skipped invalid number: "${line}"`);
             }
         }
+        
+        console.log(`📊 Total valid numbers: ${phoneNumberSendToBulk.length}`);
         await storageInstance.savePhoneNumbersBulk(phoneNumbersBulk);
         updateView();
     });
@@ -519,34 +844,98 @@ function addEventListenersBulkMessageView() {
 
 /* *****************************-------SEND INDIVIDUAL MESSAGE--------******************************** */
 
-function sendMessageToIndividual(index, data, msgIndividual, delay) {
+async function sendMessageToIndividual(index, data, msgIndividual, delay) {
+    console.log(`🚀 Starting individual message send`);
+    stopSendingIndividual = false;
+    
+    // Show stop button and hide send button
+    $("#sendMessageIndividual").hide();
+    $("#stopSendingIndividual").show();
 
-    sendMsgToActiveTab({
-        from: "home.js",
-        subject: MSG_SEND_MESSAGE,
-        data: {
-            message: msgIndividual,
-            numbers: [data[index]],
-            delay: delay
+    try {
+        // Check if user pressed stop
+        if (stopSendingIndividual) {
+            console.log(`🛑 Individual sending stopped by user`);
+            return;
         }
-    });
+
+        console.log(`📤 Sending individual message to ${data[index]} with visual typing animation`);
+        
+        // Show typing animation that matches the actual timing
+        await animateTyping(msgIndividual, data[index]);
+        
+        // Check if user pressed stop during animation
+        if (stopSendingIndividual) {
+            console.log(`🛑 Individual sending stopped during typing animation`);
+            return;
+        }
+        
+        // Calculate realistic typing time for backend
+        const typingTime = calculateMessageTypingTime(msgIndividual);
+        console.log(`⌨️  Backend typing time: ${typingTime}ms for message: "${msgIndividual.substring(0, 50)}..."`);
+        
+        await sendMsgToActiveTab({
+            from: "home.js",
+            subject: MSG_SEND_MESSAGE,
+            data: {
+                message: msgIndividual,
+                numbers: [data[index]],
+                delay: delay,
+                humanTyping: {
+                    enabled: true,
+                    typingTime: typingTime,
+                    animated: true // Flag to indicate animation was shown
+                }
+            }
+        });
+        
+        console.log(`✅ Individual message sent successfully`);
+        
+    } catch (error) {
+        console.error(`❌ Error sending individual message:`, error);
+        hideTypingAnimation(); // Hide animation on error
+    } finally {
+        // Reset UI
+        $("#stopSendingIndividual").hide();
+        $("#sendMessageIndividual").show();
+        stopSendingIndividual = false;
+    }
 }
 
 function addEventListenersIndividualMessageView() {
 
     $("#sendMessageIndividual").click(async function () {
         if (phoneNumberIndividual.length > 0) {
-            sendMessageToIndividual(0, phoneNumberIndividual, msgIndividual, delay);
+            await sendMessageToIndividual(0, phoneNumberIndividual, msgIndividual, delay);
         }
+    });
+
+    $("#stopSendingIndividual").click(function () {
+        console.log("🛑 User clicked stop button for individual sending");
+        stopSendingIndividual = true;
+        $(this).prop("disabled", true).text("Остановка...");
     });
     $("#inputIndividualMessage").on("input", async function () {
         msgIndividual = $(this).val();
         await storageInstance.saveCurrentMessageIndividual(msgIndividual);
         updateView();
     });
-    $("#individualMessageTabPhoneNumber").on("change", async function () {
-        phoneNumberIndividual = this.value.split("\n");
-        phoneNumberIndividual[0] = phoneNumberIndividual[0] ? phoneNumberIndividual[0].replace('+', '') : '';
+    $("#individualMessageTabPhoneNumber").on("input change paste", async function () {
+        const rawInput = this.value.trim();
+        console.log(`📝 Processing individual phone number input: "${rawInput}"`);
+        
+        if (!rawInput) {
+            phoneNumberIndividual = [];
+        } else {
+            phoneNumberIndividual = rawInput.split("\n");
+            // Clean and validate the phone number
+            phoneNumberIndividual[0] = phoneNumberIndividual[0] ? phoneNumberIndividual[0].trim().replace('+', '') : '';
+            
+            // Remove empty entries
+            phoneNumberIndividual = phoneNumberIndividual.filter(num => num && num.trim().length >= 7);
+        }
+        
+        console.log(`📊 Individual phone numbers processed:`, phoneNumberIndividual);
         await storageInstance.savePhoneNumbersIndividual(phoneNumberIndividual);
         updateView();
     });

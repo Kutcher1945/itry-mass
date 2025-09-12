@@ -3,6 +3,9 @@
 
 <head>
     <link rel="stylesheet" href="bootstrap.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="jquery.min.js"></script>
     <link rel="stylesheet" href="style.css">
     <script src="popup.js"></script>
@@ -10,7 +13,7 @@
     <!-- <script src="content.js"></script> -->
 </head>
 
-<body>
+<body style="margin: 0; padding: 10px; width: 100%; min-height: 100vh; overflow-x: hidden;">
     <!-- ***************************** CODE FOR ONLY SINGLE MESSAGE SENDING *************************** -->
 
     <!-- <div class="container-fluid">
@@ -19,13 +22,13 @@
                 <div class="col-sm-6 m16">
                     <input class="form-control country-code" placeholder="India +91" id="selectCountryCode" value="+ 91" disabled/>
                 </div>
-                <div class="col-sm-12 m16">
+                <div class="col-12 m16" style="padding: 5px; width: 100%;">
                     <input class="form-control" placeholder="Enter the Number" id="inputPhoneNumber" />
                 </div>
-                <div class="col-sm-12 m16">
+                <div class="col-12 m16" style="padding: 5px; width: 100%;">
                     <textarea class="form-control" col="4" row="3" placeholder="message" id="inputmessage"></textarea>
                 </div>
-                <div class="col-sm-12 m16">
+                <div class="col-12 m16" style="padding: 5px; width: 100%;">
                     <button class="btn btn-success" id="sendMessage">Send Message</button>
                 </div>
             </div>
@@ -33,18 +36,18 @@
     </div> -->
 
     <!-- *********************************************************************************************** -->
-    <div style="text-align: center; margin-top: 15px; margin-bottom: 20px;">
-        <a href="https://cursor.pw" target="_blank">
-            <img width="240px" src=".\images\Logo.png" alt="CURSOR" ></a>
+    <div class="logo-container" style="text-align: center; margin: 20px 0; padding: 0 15px;">
+        <a href="https://cursor.pw" target="_blank" class="logo-link">
+            <img width="200px" src=".\images\Logo.png" alt="CURSOR" style="max-width: 100%; filter: drop-shadow(0 10px 25px rgba(0,0,0,0.3)); transition: all 0.3s ease;"></a>
     </div>
-    <div class="">
-        <div class="main-container">
-            <div class="row">
+    <div style="width: 100%; max-width: 100%;">
+        <div class="main-container" style="padding: 0 10px; width: 100%;">
+            <div class="row" style="margin: 0; width: 100%;">
                 <!-- <div class="col-sm-6 m16">
                     <input class="form-control country-code" placeholder="India +91" id="selectCountryCodeBulk"
                         value="+ 91" disabled />
                 </div> -->
-                <div class="col-sm-12 m16">
+                <div class="col-12 m16" style="padding: 5px; width: 100%;">
                     <div class=" card card-height border-0">
                         <!-- Nav Tabs -->
                         <ul class="nav nav-justified border-bottom-EF6C5C" role="tablist">
@@ -66,30 +69,32 @@
                         <div class="tab-content pt-3">
                             <!-- tab Individual Messages -->
                             <div class="tab-pane active" id="individualMessage">
-                                    <span><b>Номер телефона</b>&nbsp; (+7, без пробелов)</span>
-                                <div class="input-group mb-3">
-                                    <!-- <div class="input-group-prepend">
-                                    <button class="btn dropdown-toggle dropup" type="button" data-toggle="dropdown"
-                                        aria-haspopup="true" aria-expanded="false">(+91)</button>
-                                    <div class="dropdown-menu">
-                                        <a class="dropdown-item" href="#">Action</a>
-                                        <a class="dropdown-item" href="#">Separated link</a>
+                                <div class="mb-3">
+                                    <label><b>Номер телефона</b>&nbsp; (+7, без пробелов)</label>
+                                    <div class="input-group-with-icon">
+                                        <input type="text" class="form-control border-EF6C5C"
+                                            id="individualMessageTabPhoneNumber"
+                                            placeholder="79001234567"
+                                            aria-label="Номер телефона" />
+                                        <span class="input-icon">📱</span>
                                     </div>
-                                </div> -->
-                                    <input type="text" class="form-control border-EF6C5C"
-                                        id="individualMessageTabPhoneNumber"
-                                        aria-label="Text input with dropdown button" />
                                 </div>
-                                <div>
-                                    <span><b>Сообщение</b></span>
-                                    <textarea col="4" row="3" class="form-control border-EF6C5C"
-                                        id="inputIndividualMessage" style="height:200px"></textarea>
+                                <div class="mb-3">
+                                    <label><b>Сообщение</b></label>
+                                    <div class="input-group-with-icon">
+                                        <textarea class="form-control border-EF6C5C"
+                                            id="inputIndividualMessage" 
+                                            placeholder="Введите ваше сообщение..."
+                                            style="height:200px"></textarea>
+                                        <span class="input-icon" style="top: 20px; transform: none;">💬</span>
+                                    </div>
                                 </div>
                                 
                                 <div class="text-center">
                                     <button class="btn btn-outline-52BAD3 mr-2"
                                         id="clearAllFieldsIndividual">Очистить</button>
                                     <button class="btn btn-info" id="sendMessageIndividual">Отправить</button>
+                                    <button class="btn btn-danger" id="stopSendingIndividual" style="display: none;">Остановить</button>
                                 </div>
 
                             </div>
@@ -97,9 +102,15 @@
 
                             <!-- tab Bulk Messages -->
                             <div id="bulkMessage" class="tab-pane">
-                                <span><b>Номера Телефонов</b>&nbsp;(В столбик!) <br>Дополнительые поля указывайте через запятую.</span>
-                                <textarea class="form-control border-EF6C5C bulk-text-area"
-                                    id="inputNumbersBulk"></textarea>
+                                <div class="mb-3">
+                                    <label><b>Номера Телефонов</b>&nbsp;(В столбик!) <br>Дополнительые поля указывайте через запятую.</label>
+                                    <div class="input-group-with-icon">
+                                        <textarea class="form-control border-EF6C5C bulk-text-area"
+                                            id="inputNumbersBulk"
+                                            placeholder="79001234567&#10;79005678901&#10;79009876543"></textarea>
+                                        <span class="input-icon" style="top: 20px; transform: none;">📋</span>
+                                    </div>
+                                </div>
                                 <span class="link-download-csv">
                                     <a
                                         href="https://promoteroute.com/wp-content/uploads/2019/11/PromoteRoute_Sample_CSV.csv" target="_blank">Пример CSV</a>
@@ -111,26 +122,29 @@
                                 <input style="display: none;" id="inputUploadNumbers" type="file">
 
                                 <div class="pt-2">
-                                    <span><b>Сообщение</b></span>
-                                    <!-- <button class="btn btn-success btn-sm m16" id="boldMessageBulk">Bold</button>
-                            <button class="btn btn-primary btn-sm m16" id="italicMessageBulk">Italic</button>
-                            <button class="btn btn-info btn-sm m16" id="strikethroughMessageBulk">Strike Through</button> -->
-
-                                    <button class="btn btn-sm m16 btn-outline-EF6C5C px-4" id="valueOneLabel">Поле 1</button>
-                                    <button class="btn btn-sm m16 btn-outline-EF6C5C px-4" id="valueTwoLabel">Поле 2</button>
-
-                                    <textarea class="form-control border-EF6C5C" col="4" row="3" id="inputMessageBulk"
-                                        style="height:128px"></textarea>
+                                    <div class="mb-2">
+                                        <button class="btn btn-sm m16 btn-outline-EF6C5C px-4" id="valueOneLabel">Поле 1</button>
+                                        <button class="btn btn-sm m16 btn-outline-EF6C5C px-4" id="valueTwoLabel">Поле 2</button>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label><b>Сообщение</b></label>
+                                        <div class="input-group-with-icon">
+                                            <textarea class="form-control border-EF6C5C" 
+                                                id="inputMessageBulk"
+                                                placeholder="Привет! Это персональное сообщение для @valueOne..."
+                                                style="height:128px"></textarea>
+                                            <span class="input-icon" style="top: 20px; transform: none;">✉️</span>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div class="mb-3">
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="useMessageVariations" checked>
-                                        <label class="form-check-label" for="useMessageVariations">
-                                            <b>Использовать AI вариации сообщений</b> (сделать сообщения короче и разнообразнее)
+                                        <label class="form-check-label simple-cursive-text" for="useMessageVariations">
+                                            Использовать ИИ вариации сообщений
                                         </label>
                                     </div>
-                                    <small class="text-muted">Требует API ключ Mistral AI в popup.js</small>
                                 </div>
    
                                 <div class="mb-3" id="progressContainer" style="display: none;">
@@ -145,9 +159,23 @@
                                     </div>
                                 </div>
 
+                                <div class="mb-3" id="typingContainer" style="display: none;">
+                                    <div class="typing-simulation-box">
+                                        <div class="typing-header">
+                                            <span class="typing-icon">⌨️</span>
+                                            <span id="typingStatus">Печатаю сообщение...</span>
+                                        </div>
+                                        <div class="typing-content">
+                                            <div class="current-number">→ <span id="currentNumber"></span></div>
+                                            <div class="typing-text" id="typingText"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div class="text-center">
                                     <button class="btn btn-outline-52BAD3 mr-2" id="clearAllFieldsBulk">Очистить</button>
                                     <button class="btn btn-info" id="sendMessageBulk">Отправить</button>
+                                    <button class="btn btn-danger" id="stopSending" style="display: none;">Остановить</button>
                                 </div>
 
                             </div>
