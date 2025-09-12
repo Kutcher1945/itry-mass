@@ -1005,4 +1005,52 @@ function addEventListeners() {
     addEventListenersBulkMessageView();
     addEventListenersIndividualMessageView();
     addEventListenersClearAllFields();
+    addTabAnimationListeners();
+}
+
+// Enhanced Tab Animation System
+function addTabAnimationListeners() {
+    // Add click animation feedback
+    $('[data-toggle="tab"]').on('click', function() {
+        // Add subtle tab click animation
+        $(this).addClass('tab-clicked');
+        setTimeout(() => {
+            $(this).removeClass('tab-clicked');
+        }, 300);
+        
+        // Log tab switching
+        const targetTab = $(this).attr('href').substring(1);
+        console.log(`🎭 Tab clicked: ${targetTab}`);
+    });
+    
+    // Let Bootstrap handle the tab switching while we add visual enhancements
+    // The CSS animations will automatically apply when Bootstrap changes the active class
+}
+
+// Add CSS for tab click animation
+const tabClickCSS = `
+.nav-link.tab-clicked {
+    transform: translateY(-3px) scale(1.1) !important;
+    box-shadow: 0 15px 50px rgba(55, 114, 255, 0.6) !important;
+    animation: tabPulse 0.3s ease-out !important;
+}
+
+@keyframes tabPulse {
+    0% { transform: translateY(-3px) scale(1.05); }
+    50% { transform: translateY(-5px) scale(1.12); }
+    100% { transform: translateY(-3px) scale(1.1); }
+}
+
+.tab-pane.slide-out-right {
+    transform: translateX(100%);
+    opacity: 0;
+}
+`;
+
+// Inject the CSS
+if (!document.getElementById('tab-animation-styles')) {
+    const style = document.createElement('style');
+    style.id = 'tab-animation-styles';
+    style.textContent = tabClickCSS;
+    document.head.appendChild(style);
 }
