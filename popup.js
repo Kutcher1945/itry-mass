@@ -1,6 +1,7 @@
 const MSG_GET_USER_PHONENUMBER = "MSG_GET_USER_PHONENUMBER";
 const MSG_GET_PAGE_URL = "MSG_GET_PAGE_URL";
 const MSG_SEND_MESSAGE = "MSG_SEND_MESSAGE";
+const MSG_VALIDATE_NUMBERS = "MSG_VALIDATE_NUMBERS";
 
 // BULK MESSAGE
 const KEY_PHONE_NUMBERS_BULK = "KEY_PHONE_NUMBERS_BULK";
@@ -120,11 +121,18 @@ async function getSkippedNumbers(phoneNumbers) {
     return { skipped, toSend };
 }
 
+
+
+
 // Manual Checker Functions - IN-POPUP INTERFACE
 async function checkAndRemoveRecentNumbers() {
+    console.log('🔍 checkAndRemoveRecentNumbers called');
     try {
         const rawInput = $("#inputNumbersBulk").val();
+        console.log('📝 Raw input:', rawInput);
+        
         if (!rawInput.trim()) {
+            console.log('⚠️ No input found');
             showSimpleMessage("⚠️ Сначала введите номера телефонов для проверки.", "warning");
             return;
         }
@@ -144,7 +152,7 @@ async function checkAndRemoveRecentNumbers() {
             
             if (phoneNumber && phoneNumber.replace(/\D/g, '').length >= 7) {
                 allNumbers.push({
-                    originalLine: line,
+                    originalLine: trimmedLine, // Use trimmed line instead of original line
                     number: phoneNumber,
                     valueOne: splitValue[1] ? splitValue[1].trim() : '',
                     valueTwo: splitValue[2] ? splitValue[2].trim() : ''
@@ -164,8 +172,17 @@ async function checkAndRemoveRecentNumbers() {
         checkerData = { allNumbers, skipped, toSend };
         console.log('💾 Stored checkerData:', checkerData);
         
+        // Also store in localStorage as backup
+        localStorage.setItem('checkerData', JSON.stringify(checkerData));
+        
         if (skipped.length === 0) {
             showSuccessMessage(allNumbers.length);
+            return;
+        }
+        
+        if (toSend.length === 0) {
+            // All numbers are in skip list - but still show remove button
+            showAllNumbersSkippedMessage(allNumbers.length, skipped, true);
             return;
         }
         
@@ -980,6 +997,18 @@ function addEventListenersBulkMessageView() {
     $("#btnCheckRecentNumbers").click(async function () {
         await checkAndRemoveRecentNumbers();
     });
+    
+    
+    // Add double-click to clear message history for testing
+    $("#btnCheckRecentNumbers").dblclick(async function () {
+        if (confirm('Очистить всю историю сообщений? (Только для тестирования)')) {
+            localStorage.removeItem(KEY_MESSAGE_HISTORY);
+            await new Promise(resolve => {
+                chrome.storage.local.remove(KEY_MESSAGE_HISTORY, resolve);
+            });
+            alert('История сообщений очищена!');
+        }
+    });
     $("#inputUploadNumbers").on("change", function () {
         const file = $(this)[0].files[0];
         var fr = new FileReader;
@@ -1175,6 +1204,7 @@ function addEventListeners() {
     addEventListenersIndividualMessageView();
     addEventListenersClearAllFields();
     addTabAnimationListeners();
+    addCheckerEventListeners();
 }
 
 // Enhanced Tab Animation System
@@ -1222,6 +1252,76 @@ if (!document.getElementById('tab-animation-styles')) {
     style.id = 'tab-animation-styles';
     style.textContent = tabClickCSS;
     document.head.appendChild(style);
+}
+
+// Show message when all numbers are skipped
+function showAllNumbersSkippedMessage(totalCount, skippedNumbers, showRemoveButton = false) {
+    let content = `
+        <div class="premium-success-message">
+            <span class="premium-success-icon">⚠️</span>
+            <div class="premium-success-title" style="background: linear-gradient(135deg, rgba(255, 193, 7, 0.9) 0%, rgba(255, 193, 7, 0.7) 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">
+                Все номера недавно контактированы
+            </div>
+            <div class="premium-success-details">
+                Все <strong>${totalCount}</strong> номеров получали сообщения в последние ${SKIP_DAYS} дня.
+            </div>
+            <div class="premium-success-subtitle">
+                Рекомендуется подождать или использовать другие номера.
+            </div>
+        </div>
+    `;
+    
+    if (skippedNumbers.length <= 5) {
+        content += `
+            <div class="premium-numbers-section">
+                <div class="premium-numbers-header">
+                    📋 Недавно контактированные номера
+                </div>
+                <div class="premium-numbers-list">
+        `;
+        
+        skippedNumbers.forEach((item, index) => {
+            const number = typeof item === 'string' ? item : item.number;
+            content += `
+                <div class="premium-number-item" data-number="${number}">
+                    <div class="premium-number-info">${index + 1}. ${number}</div>
+                    <div class="premium-number-days" id="days-${number}">...</div>
+                </div>
+            `;
+        });
+        
+        content += `
+                </div>
+            </div>
+        `;
+    }
+    
+    $("#checkerContent").html(content);
+    $("#checkerStatus").text("Результаты проверки");
+    
+    if (showRemoveButton) {
+        $("#checkerActions").show(); // Show remove button
+    } else {
+        $("#checkerActions").hide(); // No actions needed - all are skipped
+    }
+    
+    $("#checkerResultsContainer").show();
+    
+    // Update with actual days after rendering
+    setTimeout(async () => {
+        const history = await getMessageHistory();
+        skippedNumbers.slice(0, 5).forEach((item) => {
+            const number = typeof item === 'string' ? item : item.number;
+            const entry = history[number];
+            const daysSince = entry ? ((Date.now() - entry.lastSent) / (24 * 60 * 60 * 1000)).toFixed(1) : '?';
+            $(`#days-${number}`).text(`${daysSince} дн. назад`);
+        });
+    }, 100);
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        hideCheckerResults();
+    }, 5000);
 }
 
 // Show premium success message
@@ -1363,7 +1463,7 @@ function showSimpleMessage(message, type = "info") {
 // Hide checker results
 function hideCheckerResults() {
     $("#checkerResultsContainer").hide();
-    checkerData = { allNumbers: [], skipped: [], toSend: [] };
+    // Don't clear checkerData here - keep it until new check is performed
 }
 
 // Confirm and remove numbers
@@ -1371,22 +1471,100 @@ function confirmRemoveNumbers() {
     console.log('🔧 confirmRemoveNumbers called');
     console.log('📊 checkerData:', checkerData);
     
+    // Try to restore from localStorage if checkerData is empty
+    if (!checkerData || !checkerData.toSend || checkerData.toSend.length === 0) {
+        try {
+            const stored = localStorage.getItem('checkerData');
+            if (stored) {
+                checkerData = JSON.parse(stored);
+                console.log('🔄 Restored checkerData from localStorage:', checkerData);
+            }
+        } catch (e) {
+            console.error('Failed to restore from localStorage:', e);
+        }
+    }
+    
     try {
         const { skipped, toSend } = checkerData;
         
+        console.log('📊 skipped:', skipped);
+        console.log('📊 toSend:', toSend);
+        console.log('📊 checkerData keys:', Object.keys(checkerData));
+        console.log('📊 toSend length:', toSend ? toSend.length : 'undefined');
+        
+        // If toSend is empty but we have skipped numbers, remove all (clear the field)
         if (!toSend || toSend.length === 0) {
-            showSimpleMessage("❌ Нет данных для обновления.", "error");
-            return;
+            if (skipped && skipped.length > 0) {
+                console.log('🧹 Removing ALL numbers (all were skipped)');
+                
+                // Clear the input field
+                $("#inputNumbersBulk").val('');
+                
+                // Update global arrays
+                phoneNumberSendToBulk = [];
+                phoneNumbersBulk = [];
+                
+                // Save to storage and update view
+                storageInstance.savePhoneNumbersBulk(phoneNumbersBulk);
+                updateView();
+                
+                // Show success message
+                const content = `
+                    <div class="premium-success-message">
+                        <span class="premium-success-icon">🗑️</span>
+                        <div class="premium-success-title">Все номера удалены!</div>
+                        <div class="premium-success-details">
+                            Удалено <strong>${skipped.length}</strong> номеров из списка.
+                        </div>
+                        <div class="premium-success-subtitle">
+                            Поле номеров очищено. Можете добавить новые номера.
+                        </div>
+                    </div>
+                `;
+                
+                $("#checkerContent").html(content);
+                $("#checkerActions").hide();
+                
+                // Clear stored data after successful operation
+                localStorage.removeItem('checkerData');
+                checkerData = { allNumbers: [], skipped: [], toSend: [] };
+                
+                // Auto-hide after 2.5 seconds
+                setTimeout(() => {
+                    hideCheckerResults();
+                }, 2500);
+                
+                return;
+            } else {
+                console.error('❌ toSend is empty or undefined');
+                showSimpleMessage("❌ Нет данных для обновления. Сначала выполните проверку номеров.", "error");
+                return;
+            }
         }
         
         // Reconstruct input with only non-skipped numbers
-        const newLines = toSend.map(item => item.originalLine);
+        const newLines = toSend.map(item => {
+            if (item.originalLine) {
+                return item.originalLine;
+            } else {
+                // Fallback: reconstruct from components
+                let line = item.number;
+                if (item.valueOne) line += ',' + item.valueOne;
+                if (item.valueTwo) line += ',' + item.valueTwo;
+                return line;
+            }
+        });
         const newInput = newLines.join('\n');
         
         $("#inputNumbersBulk").val(newInput);
         
-        // Trigger input event to update internal arrays
-        $("#inputNumbersBulk").trigger('input');
+        // Update global arrays with remaining numbers
+        phoneNumberSendToBulk = [...toSend];
+        phoneNumbersBulk = newLines;
+        
+        // Save to storage and update view
+        storageInstance.savePhoneNumbersBulk(phoneNumbersBulk);
+        updateView();
         
         // Show premium success message
         const content = `
@@ -1416,6 +1594,10 @@ function confirmRemoveNumbers() {
         
         console.log(`🧹 Removed ${skipped.length} recent contacts, ${toSend.length} numbers remaining`);
         
+        // Clear stored data after successful operation
+        localStorage.removeItem('checkerData');
+        checkerData = { allNumbers: [], skipped: [], toSend: [] };
+        
         // Auto-hide after 2.5 seconds
         setTimeout(() => {
             hideCheckerResults();
@@ -1427,6 +1609,19 @@ function confirmRemoveNumbers() {
     }
 }
 
-// Make functions globally available for HTML onclick handlers
+// Add event listeners for checker buttons
+function addCheckerEventListeners() {
+    // Event listener for confirm remove button
+    $(document).on('click', '#confirmRemoveBtn', function() {
+        confirmRemoveNumbers();
+    });
+    
+    // Event listeners for close/cancel buttons
+    $(document).on('click', '#closeCheckerBtn, #cancelRemoveBtn', function() {
+        hideCheckerResults();
+    });
+}
+
+// Make functions globally available for HTML onclick handlers (backup)
 window.hideCheckerResults = hideCheckerResults;
 window.confirmRemoveNumbers = confirmRemoveNumbers;

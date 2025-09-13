@@ -117,7 +117,7 @@
                                 </div>
                                 <div class="upload-section">
                                     <span class="link-download-csv">
-                                        <a href="https://promoteroute.com/wp-content/uploads/2019/11/PromoteRoute_Sample_CSV.csv" target="_blank">Пример CSV</a>
+                                        <a href="./sample.csv" download="sample.csv">Пример CSV</a>
                                     </span>
                                     <button class="btn bg-EF6C5C text-white btn-position" id="btnUploadNumbersButton">
                                         <img src=".\images\Upload.png" class="imgUpload" alt="upload">
@@ -145,7 +145,7 @@
                                                         <div class="premium-subtitle">Проверка дубликатов и оптимизация</div>
                                                     </div>
                                                 </div>
-                                                <button class="premium-close-btn" onclick="hideCheckerResults()">
+                                                <button class="premium-close-btn" id="closeCheckerBtn">
                                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                                         <line x1="18" y1="6" x2="6" y2="18"></line>
                                                         <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -160,13 +160,13 @@
                                             <div class="premium-actions" id="checkerActions" style="display: none;">
                                                 <div class="premium-action-divider"></div>
                                                 <div class="premium-buttons-container">
-                                                    <button class="premium-btn premium-btn-secondary" onclick="hideCheckerResults()">
+                                                    <button class="premium-btn premium-btn-secondary" id="cancelRemoveBtn">
                                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                             <path d="m15 18-6-6 6-6"/>
                                                         </svg>
                                                         Отменить
                                                     </button>
-                                                    <button class="premium-btn premium-btn-primary" onclick="confirmRemoveNumbers()">
+                                                    <button class="premium-btn premium-btn-primary" id="confirmRemoveBtn">
                                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                             <polyline points="9,11 12,14 22,4"/>
                                                             <path d="m21,4-10,10-4-4"/>
@@ -238,30 +238,165 @@
 
                             </div>
                             <!-- tab Bulk Messages End-->
-                            <div style="font-size: 14px;" class="tab-pane border-52BAD3" id="info">
-                                <span><b>CSV формат:</b></span>
-                                <ul>
-                                    <li>1я колонка - Номер телефона. (Обязательно)</li>
-                                    <li>2я колонка - любое пользовательское значение.</li>
-                                    <li>3я колонка - любое пользовательское значение.</li>
-                                </ul>
-                                <span><b>ВАЖНО: Во избежание блокировки телефона:</b></span>
-                                <ul>
-                                    <li>Отправляйте только знакомым контактам.</li>
-                                    <li>Не отправляйте с Вашего личного номера.</li>
-                                    <li>Не отправляйте больше 50 сообщений за раз.</li>
-                                    <li>Не отправляйте больше 500 сообщений в сутки.</li>
-                                    <li>Мы не несем ответственности за блокировку аккаунта.</li>
-                                </ul>
-                                <div class="m16">
-                                        <p class="text-left formatting">Форматирование Текста:
-                                            *<b>Текст</b>*
-                                            <i>_Текст_</i>
-                                            <span>~<s class="strikethrough">Текст</s>~</span>
+                            <div class="tab-pane info-tab-content" id="info">
+                                <div class="info-container">
+                                    <!-- Header Section -->
+                                    <div class="info-header">
+                                        <div class="info-title">
+                                            <span class="info-icon">📱</span>
+                                            <h3>WhatsApp Mass Messenger</h3>
+                                        </div>
+                                        <p class="info-description">
+                                            Профессиональный инструмент для персональных рассылок в WhatsApp с умной защитой от блокировок
                                         </p>
                                     </div>
-                                <center><a href='https://web.whatsapp.com' target="_blank"><button>WhatsApp Web</button></a>
-                                <a href='https://itry-portfolio.vercel.app' target="_blank"><button style="background-color: rgb(174, 0, 255);">Последняя Версия</button></a><br><br></center>
+
+                                    <!-- Features Section -->
+                                    <div class="info-section">
+                                        <h4 class="info-section-title">🚀 Основные возможности</h4>
+                                        <div class="feature-grid">
+                                            <div class="feature-card">
+                                                <span class="feature-icon">⚡</span>
+                                                <div class="feature-content">
+                                                    <h5>Быстрая рассылка</h5>
+                                                    <p>Отправка сообщений с реалистичной имитацией печати</p>
+                                                </div>
+                                            </div>
+                                            <div class="feature-card">
+                                                <span class="feature-icon">🤖</span>
+                                                <div class="feature-content">
+                                                    <h5>ИИ вариации</h5>
+                                                    <p>Автоматическое создание уникальных версий сообщений</p>
+                                                </div>
+                                            </div>
+                                            <div class="feature-card">
+                                                <span class="feature-icon">🛡️</span>
+                                                <div class="feature-content">
+                                                    <h5>Умная проверка</h5>
+                                                    <p>Автоматический пропуск недействительных номеров WhatsApp</p>
+                                                </div>
+                                            </div>
+                                            <div class="feature-card">
+                                                <span class="feature-icon">📊</span>
+                                                <div class="feature-content">
+                                                    <h5>CSV импорт</h5>
+                                                    <p>Загрузка номеров с персональными данными</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- CSV Format Section -->
+                                    <div class="info-section">
+                                        <h4 class="info-section-title">📋 Формат CSV файла</h4>
+                                        <div class="csv-info-card">
+                                            <div class="csv-structure">
+                                                <div class="csv-column">
+                                                    <span class="csv-number">1</span>
+                                                    <div class="csv-details">
+                                                        <strong>Номер телефона</strong>
+                                                        <small>79001234567 (без +7, обязательно)</small>
+                                                    </div>
+                                                </div>
+                                                <div class="csv-column">
+                                                    <span class="csv-number">2</span>
+                                                    <div class="csv-details">
+                                                        <strong>Поле 1 (@valueOne)</strong>
+                                                        <small>Имя, название компании и т.д.</small>
+                                                    </div>
+                                                </div>
+                                                <div class="csv-column">
+                                                    <span class="csv-number">3</span>
+                                                    <div class="csv-details">
+                                                        <strong>Поле 2 (@valueTwo)</strong>
+                                                        <small>Город, должность, дополнительно</small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="csv-example">
+                                                <strong>Пример:</strong>
+                                                <code>79001234567,Иван,Москва</code>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Text Formatting Section -->
+                                    <div class="info-section">
+                                        <h4 class="info-section-title">✨ Форматирование текста</h4>
+                                        <div class="formatting-grid">
+                                            <div class="format-item">
+                                                <code>*жирный*</code>
+                                                <span>→</span>
+                                                <strong>жирный</strong>
+                                            </div>
+                                            <div class="format-item">
+                                                <code>_курсив_</code>
+                                                <span>→</span>
+                                                <em>курсив</em>
+                                            </div>
+                                            <div class="format-item">
+                                                <code>~зачёркнутый~</code>
+                                                <span>→</span>
+                                                <s>зачёркнутый</s>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Safety Section -->
+                                    <div class="info-section safety-section">
+                                        <h4 class="info-section-title">🛡️ Правила безопасности</h4>
+                                        <div class="safety-grid">
+                                            <div class="safety-card good">
+                                                <span class="safety-icon">✅</span>
+                                                <div class="safety-content">
+                                                    <h5>Рекомендуется</h5>
+                                                    <ul>
+                                                        <li>Отправлять знакомым контактам</li>
+                                                        <li>Использовать бизнес-аккаунт</li>
+                                                        <li>Делать паузы между рассылками</li>
+                                                        <li>Система автоматически пропускает неверные номера</li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                            <div class="safety-card warning">
+                                                <span class="safety-icon">⚠️</span>
+                                                <div class="safety-content">
+                                                    <h5>Ограничения</h5>
+                                                    <ul>
+                                                        <li>Не более 50 сообщений за раз</li>
+                                                        <li>Не более 500 сообщений в сутки</li>
+                                                        <li>Избегайте спам-контент</li>
+                                                        <li>Не используйте личный номер</li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="disclaimer">
+                                            <p><strong>Внимание:</strong> Мы не несём ответственности за блокировку аккаунтов. Используйте на свой страх и риск.</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Links Section -->
+                                    <div class="info-section">
+                                        <h4 class="info-section-title">🔗 Полезные ссылки</h4>
+                                        <div class="links-grid">
+                                            <a href='https://web.whatsapp.com' target="_blank" class="info-link whatsapp">
+                                                <span class="link-icon">💬</span>
+                                                <div class="link-content">
+                                                    <strong>WhatsApp Web</strong>
+                                                    <small>Откройте WhatsApp в браузере</small>
+                                                </div>
+                                            </a>
+                                            <a href='https://itry-portfolio.vercel.app' target="_blank" class="info-link updates">
+                                                <span class="link-icon">🚀</span>
+                                                <div class="link-content">
+                                                    <strong>Последняя версия</strong>
+                                                    <small>Проверить обновления</small>
+                                                </div>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
 

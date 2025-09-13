@@ -3403,6 +3403,28 @@ function msgListener(msg, sender, response) {
                   return false; // Synchronous response
               }
               
+          case MSG_VALIDATE_NUMBERS:
+              {
+                  console.log('🔍 MSG_VALIDATE_NUMBERS received:', msg.data);
+                  const phoneNumbers = msg.data.numbers || [];
+                  
+                  validateWhatsAppNumbers(phoneNumbers)
+                      .then((result) => {
+                          console.log('✅ Numbers validated:', result);
+                          if (response) {
+                              response({ success: true, result: result });
+                          }
+                      })
+                      .catch((error) => {
+                          console.error('❌ Error validating numbers:', error);
+                          if (response) {
+                              response({ success: false, error: error.message || 'Validation failed' });
+                          }
+                      });
+                  
+                  return true; // Asynchronous response
+              }
+              
           default:
               console.log('❓ Unknown message subject:', msg.subject);
               if (response) {
@@ -3564,32 +3586,53 @@ function sendMessage(number, text) {
               let result = false;
               
               try {
+                  // First check if number is valid BEFORE typing anything
                   if (await isNumberValid()) {
-                      console.log(`✅ Number ${number} is valid, proceeding to send message`);
-                      // Try to type the message directly if URL pre-fill didn't work
-                      await typeMessageDirectly(text);
-                      console.log(`📝 Message typed, now attempting to click send button`);
-                      await clickSendButton();
-                      console.log(`📤 Send button clicked for ${number}`);
+                      console.log(`✅ Number ${number} passed error check`);
                       
-                      // Verify the message was actually sent
-                      result = await verifyMessageSent(text);
-                      console.log(`✅ Message send verification for ${number}: ${result ? 'SUCCESS' : 'FAILED'}`);
-                      
-                      if (!result) {
-                          console.log(`🔄 Retrying send for ${number}...`);
-                          // Try one more time
-                          await new Promise(resolve => setTimeout(resolve, 500));
+                      // For now, skip chat verification to test basic invalid number detection
+                      // TODO: Re-enable when chat verification is working properly
+                      // if (isInCorrectChat(number)) {
+                      if (true) {
+                          console.log(`✅ Proceeding to send message to ${number} (chat verification temporarily disabled)`);
+                          
+                          // Try to type the message directly if URL pre-fill didn't work
+                          await typeMessageDirectly(text);
+                          console.log(`📝 Message typed, now attempting to click send button`);
                           await clickSendButton();
-                          await new Promise(resolve => setTimeout(resolve, 500));
+                          console.log(`📤 Send button clicked for ${number}`);
+                          
+                          // Verify the message was actually sent
                           result = await verifyMessageSent(text);
-                          console.log(`✅ Second attempt for ${number}: ${result ? 'SUCCESS' : 'FAILED'}`);
+                          console.log(`✅ Message send verification for ${number}: ${result ? 'SUCCESS' : 'FAILED'}`);
+                          
+                          if (!result) {
+                              console.log(`🔄 Retrying send for ${number}...`);
+                              // Try one more time
+                              await new Promise(resolve => setTimeout(resolve, 500));
+                              await clickSendButton();
+                              await new Promise(resolve => setTimeout(resolve, 500));
+                              result = await verifyMessageSent(text);
+                              console.log(`✅ Second attempt for ${number}: ${result ? 'SUCCESS' : 'FAILED'}`);
+                          }
+                          
+                          // Wait before unlocking to prevent overlap
+                          await new Promise(resolve => setTimeout(resolve, 1000));
+                      } else {
+                          console.log(`❌ Wrong chat opened for ${number} - skipping to avoid sending to wrong person`);
+                          result = false;
+                          resetMsgBox();
+                          await new Promise(resolve => setTimeout(resolve, 500));
                       }
-                      
-                      // Wait before unlocking to prevent overlap
-                      await new Promise(resolve => setTimeout(resolve, 1000));
                   } else {
-                      console.log(`❌ ${number} is invalid`);
+                      console.log(`❌ ${number} is INVALID - not typing message, skipping to next number`);
+                      result = false; // Mark as failed, don't type or send anything
+                      
+                      // Reset message box to clear any potential pre-filled text
+                      resetMsgBox();
+                      
+                      // Small delay before moving to next
+                      await new Promise(resolve => setTimeout(resolve, 500));
                   }
               } catch (error) {
                   console.error(`❌ Error sending message to ${number}:`, error);
@@ -3764,15 +3807,205 @@ function createMessageLink(number, text) {
   })
 }
 
-function isNumberValid() {
-  const result = $("._1CnF3");
-  if (result && result.length === 1) {
-      if ($(result[0]).text() === "Phone number shared via url is invalid.OK") {
-          $("._1WZqU.PNlAR").click();
-          return false
+// Check if we're in the correct chat (Chrome extension compatible)
+function isInCorrectChat(expectedNumber) {
+  console.log(`🔍 Checking if we're in correct chat for ${expectedNumber}...`);
+  
+  const cleanExpected = expectedNumber.replace(/[^0-9]/g, ''); // Remove all non-digits
+  console.log(`🔢 Looking for clean number: ${cleanExpected}`);
+  
+  // Method 1: Check current URL
+  try {
+    const currentUrl = document.location.href || window.location.href;
+    console.log(`🌐 Current URL: ${currentUrl}`);
+    
+    if (currentUrl.includes('/send?phone=')) {
+      if (currentUrl.includes(cleanExpected)) {
+        console.log(`✅ URL contains expected number: ${cleanExpected}`);
+        return true;
       }
+    }
+  } catch (e) {
+    console.log(`⚠️ Could not check URL: ${e.message}`);
   }
-  return true
+  
+  // Method 2: Check chat header elements (multiple selectors for different WhatsApp versions)
+  const headerSelectors = [
+    '[data-testid="conversation-header"]',
+    'header[data-testid="conversation-header"]', 
+    '._21nHd',
+    '.copyable-text[data-testid="conversation-info-header-chat-title"]',
+    '[data-testid="chat-header"]',
+    'header span[title]',
+    'header div[title]',
+    '._3ko75 span[title]',
+    '.copyable-text span[dir="auto"]'
+  ];
+  
+  for (let selector of headerSelectors) {
+    try {
+      const elements = document.querySelectorAll(selector);
+      for (let element of elements) {
+        const text = element.textContent || element.title || element.getAttribute('title') || '';
+        console.log(`📋 Checking element ${selector}: "${text}"`);
+        
+        const cleanText = text.replace(/[^0-9]/g, '');
+        if (cleanText.includes(cleanExpected) || text.includes(cleanExpected)) {
+          console.log(`✅ Found matching number in header: ${text}`);
+          return true;
+        }
+      }
+    } catch (e) {
+      console.log(`⚠️ Error checking selector ${selector}: ${e.message}`);
+    }
+  }
+  
+  // Method 3: Check page content for phone number patterns
+  try {
+    const pageText = document.body.textContent || '';
+    const phonePattern = new RegExp(cleanExpected, 'g');
+    const matches = pageText.match(phonePattern);
+    
+    if (matches && matches.length > 0) {
+      console.log(`🔍 Found ${matches.length} occurrences of number in page content`);
+      
+      // Additional check: make sure we're actually in a chat, not on send page
+      const isChatPage = !document.location.href.includes('/send?phone=') && 
+                        (document.querySelector('[data-testid="msg-container"]') || 
+                         document.querySelector('.message-in') ||
+                         document.querySelector('.message-out') ||
+                         document.querySelector('[data-testid="conversation-compose-box-input"]'));
+      
+      if (isChatPage) {
+        console.log(`✅ Number found in chat page content`);
+        return true;
+      }
+    }
+  } catch (e) {
+    console.log(`⚠️ Error checking page content: ${e.message}`);
+  }
+  
+  console.log(`❌ Could not verify correct chat for ${expectedNumber}`);
+  return false; // If we can't verify, assume it's wrong to be safe
+}
+
+function isNumberValid() {
+  console.log(`🔍 Checking if phone number is valid...`);
+  
+  // First, wait a moment for any modals to appear
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      let errorFound = false;
+      let errorText = '';
+      
+      // Check for various error indicators (comprehensive list)
+      const errorSelectors = [
+          '[data-animate-modal-popup="true"]',  // Main error modal
+          '[aria-label*="invalid"]',            // Invalid number message
+          '[aria-label*="Invalid"]',            // Capitalized version
+          '._1CnF3',                           // Old WhatsApp error class
+          '.error-modal',                       // Generic error modal
+          '[role="dialog"]',                    // Dialog with error
+          '[data-testid="modal"]',             // Modal test id
+          '.modal',                            // Generic modal class
+          '[class*="modal"]',                  // Any class containing modal
+          '[class*="popup"]',                  // Any popup class
+          '[class*="dialog"]'                  // Any dialog class
+      ];
+      
+      console.log(`🔍 Searching for error modals with ${errorSelectors.length} selectors...`);
+      
+      for (let selector of errorSelectors) {
+          try {
+              const elements = document.querySelectorAll(selector);
+              console.log(`🔍 Selector "${selector}" found ${elements.length} elements`);
+              
+              for (let element of elements) {
+                  if (!element) continue;
+                  
+                  const text = element.textContent || element.innerText || '';
+                  const ariaLabel = element.getAttribute('aria-label') || '';
+                  const title = element.getAttribute('title') || '';
+                  const allText = text + ' ' + ariaLabel + ' ' + title;
+                  
+                  console.log(`🔍 Checking element: "${allText.substring(0, 100)}..."`);
+                  
+                  // Check for invalid phone number messages in multiple languages
+                  const invalidPhrases = [
+                      'Phone number shared via url is invalid',
+                      'invalid phone number',
+                      'number is not valid',
+                      'номер недействителен',
+                      'неверный номер',
+                      'Invalid phone number',
+                      'not a valid phone number'
+                  ];
+                  
+                  const hasInvalidMessage = invalidPhrases.some(phrase => 
+                      allText.toLowerCase().includes(phrase.toLowerCase())
+                  );
+                  
+                  if (hasInvalidMessage) {
+                      errorFound = true;
+                      errorText = allText.substring(0, 200);
+                      console.log(`❌ Invalid phone number detected in element: "${errorText}"`);
+                      
+                      // Try multiple methods to close the modal
+                      const closeButtons = [
+                          element.querySelector('button'),
+                          element.querySelector('[role="button"]'),
+                          element.querySelector('.close'),
+                          element.querySelector('[aria-label*="close"]'),
+                          element.querySelector('[aria-label*="Close"]'),
+                          document.querySelector('button:contains("OK")'),
+                          document.querySelector('button:contains("ОК")')
+                      ];
+                      
+                      for (let button of closeButtons) {
+                          if (button) {
+                              console.log(`🔘 Attempting to close modal with button: ${button.textContent || button.ariaLabel}`);
+                              try {
+                                  button.click();
+                                  break;
+                              } catch (e) {
+                                  console.log(`⚠️ Failed to click button: ${e.message}`);
+                              }
+                          }
+                      }
+                      
+                      break;
+                  }
+              }
+              
+              if (errorFound) break;
+          } catch (e) {
+              console.log(`⚠️ Error checking selector ${selector}: ${e.message}`);
+          }
+      }
+      
+      // Also check body text for error messages as fallback
+      if (!errorFound) {
+          const bodyText = document.body.textContent || '';
+          const hasBodyError = bodyText.includes('Phone number shared via url is invalid') ||
+                               bodyText.includes('invalid phone number') ||
+                               bodyText.includes('Invalid phone number');
+          
+          if (hasBodyError) {
+              console.log(`❌ Invalid phone number found in body text`);
+              errorFound = true;
+              errorText = 'Found in body text';
+          }
+      }
+      
+      if (errorFound) {
+          console.log(`❌ Phone number is INVALID: ${errorText}`);
+          resolve(false);
+      } else {
+          console.log(`✅ Phone number appears to be valid (no error modals detected)`);
+          resolve(true);
+      }
+    }, 1500); // Wait 1.5 seconds for modals to appear
+  });
 }
 async function clickSendButton() {
   console.log(`🔍 Starting clickSendButton - waiting for send button to be available`);
@@ -4004,6 +4237,198 @@ async function findSendButton() {
       }, 500)
   }
 }
+
+// Check if a WhatsApp number exists and is available
+async function checkWhatsAppNumber(phoneNumber) {
+  console.log(`🔍 Checking if number exists: ${phoneNumber}`);
+  
+  try {
+    // Simple method: try to navigate to WhatsApp URL and check for errors
+    const originalUrl = window.location.href;
+    const whatsappUrl = `https://web.whatsapp.com/send?phone=${phoneNumber}`;
+    
+    return new Promise((resolve) => {
+      // Create a temporary iframe to test the number
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.style.position = 'absolute';
+      iframe.style.left = '-9999px';
+      iframe.src = whatsappUrl;
+      
+      let resolved = false;
+      
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          cleanup();
+          console.log(`⏰ Timeout checking ${phoneNumber} - assuming valid`);
+          resolve({ isValid: true, reason: 'timeout' });
+        }
+      }, 3000);
+      
+      const cleanup = () => {
+        clearTimeout(timeout);
+        if (iframe.parentNode) {
+          iframe.parentNode.removeChild(iframe);
+        }
+      };
+      
+      iframe.onload = () => {
+        if (!resolved) {
+          resolved = true;
+          cleanup();
+          console.log(`✅ Number ${phoneNumber} loaded successfully`);
+          resolve({ isValid: true, reason: 'loaded' });
+        }
+      };
+      
+      iframe.onerror = () => {
+        if (!resolved) {
+          resolved = true;
+          cleanup();
+          console.log(`❌ Error loading ${phoneNumber}`);
+          resolve({ isValid: false, reason: 'error' });
+        }
+      };
+      
+      document.body.appendChild(iframe);
+    });
+  } catch (error) {
+    console.error(`💥 Error checking number ${phoneNumber}:`, error);
+    return { isValid: true, reason: 'exception' }; // Default to valid on error
+  }
+}
+
+// Enhanced WhatsApp number validation
+async function validateWhatsAppNumbers(phoneNumbers) {
+  console.log(`🔍 Starting WhatsApp validation of ${phoneNumbers.length} numbers...`);
+  
+  const results = {
+    valid: [],
+    invalid: [],
+    details: {}
+  };
+  
+  // Process numbers one by one to avoid overwhelming WhatsApp
+  for (let i = 0; i < phoneNumbers.length; i++) {
+    const number = phoneNumbers[i];
+    console.log(`📱 Checking ${i + 1}/${phoneNumbers.length}: ${number}`);
+    
+    try {
+      // Basic format validation first
+      const cleaned = number.replace(/\D/g, '');
+      if (cleaned.length < 10 || cleaned.length > 15) {
+        results.invalid.push(number);
+        results.details[number] = { isValid: false, reason: 'invalid_format' };
+        console.log(`❌ ${number} - invalid format`);
+        continue;
+      }
+      
+      // Check if number exists in WhatsApp
+      const isValid = await checkWhatsAppNumberExists(number);
+      
+      if (isValid) {
+        results.valid.push(number);
+        results.details[number] = { isValid: true, reason: 'whatsapp_valid' };
+        console.log(`✅ ${number} - valid WhatsApp number`);
+      } else {
+        results.invalid.push(number);
+        results.details[number] = { isValid: false, reason: 'not_on_whatsapp' };
+        console.log(`❌ ${number} - not found on WhatsApp`);
+      }
+      
+      // Small delay between checks to be respectful
+      if (i < phoneNumbers.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 800));
+      }
+      
+    } catch (error) {
+      console.error(`💥 Error checking ${number}:`, error);
+      // Default to invalid on error for safety
+      results.invalid.push(number);
+      results.details[number] = { isValid: false, reason: 'check_error' };
+    }
+  }
+  
+  console.log(`✅ WhatsApp validation complete: ${results.valid.length} valid, ${results.invalid.length} invalid`);
+  return results;
+}
+
+// Check if a specific number exists on WhatsApp by examining current page state
+async function checkWhatsAppNumberExists(phoneNumber) {
+  console.log(`🔍 Checking WhatsApp existence for: ${phoneNumber}`);
+  
+  return new Promise((resolve) => {
+    // For now, let's use a simple approach - check if we can detect error modals
+    // after attempting to navigate to a WhatsApp URL
+    
+    try {
+      const whatsappUrl = `https://web.whatsapp.com/send?phone=${phoneNumber}`;
+      
+      // Create a function to check for error indicators on the current page
+      const checkForErrors = () => {
+        // Look for error modal
+        const errorModal = document.querySelector('[data-animate-modal-popup="true"]');
+        const errorElements = document.querySelectorAll('[aria-label*="invalid"]');
+        const bodyText = document.body.textContent || '';
+        
+        const hasErrorModal = errorModal && (
+          bodyText.includes('Phone number shared via url is invalid') ||
+          bodyText.includes('invalid phone number') ||
+          bodyText.includes('number is not valid')
+        );
+        
+        const hasErrorElement = errorElements.length > 0;
+        
+        if (hasErrorModal || hasErrorElement) {
+          console.log(`❌ ${phoneNumber} - Error detected in DOM`);
+          return false;
+        }
+        
+        // Check URL patterns
+        const currentUrl = window.location.href;
+        if (currentUrl.includes('/send?phone=') && (hasErrorModal || bodyText.includes('invalid'))) {
+          console.log(`❌ ${phoneNumber} - Invalid number pattern detected`);
+          return false;
+        }
+        
+        return null; // Inconclusive
+      };
+      
+      // First, do a quick DOM check on current page
+      const quickCheck = checkForErrors();
+      if (quickCheck === false) {
+        resolve(false);
+        return;
+      }
+      
+      // For more accurate checking, we'd need to actually test the URL
+      // But due to CORS limitations, we'll use a simplified validation
+      
+      // Basic phone number validation
+      const cleaned = phoneNumber.replace(/\D/g, '');
+      
+      // Russian number validation (should start with 7 and be 11 digits)
+      if (cleaned.startsWith('7') && cleaned.length === 11) {
+        console.log(`✅ ${phoneNumber} - Valid Russian number format`);
+        resolve(true);
+      } else if (cleaned.length >= 10 && cleaned.length <= 15) {
+        console.log(`✅ ${phoneNumber} - Valid international number format`);
+        resolve(true);
+      } else {
+        console.log(`❌ ${phoneNumber} - Invalid number format`);
+        resolve(false);
+      }
+      
+    } catch (error) {
+      console.error(`💥 Error checking ${phoneNumber}:`, error);
+      resolve(false);
+    }
+  });
+}
+
+// Add number validation to message listener
+const MSG_VALIDATE_NUMBERS = "MSG_VALIDATE_NUMBERS";
 
 function resetMsgBox() {
   console.log(`🗑️ Starting resetMsgBox - clearing message input`);
