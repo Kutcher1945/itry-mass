@@ -22,6 +22,13 @@ const SKIP_DAYS = 3; // Skip numbers contacted in past 3 days
 let stopSendingBulk = false;
 let stopSendingIndividual = false;
 
+// Global variables for checker state
+let checkerData = {
+    allNumbers: [],
+    skipped: [],
+    toSend: []
+};
+
 // Human-like typing simulation functions
 function getRandomDelay(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -113,12 +120,12 @@ async function getSkippedNumbers(phoneNumbers) {
     return { skipped, toSend };
 }
 
-// Manual Checker Functions
+// Manual Checker Functions - IN-POPUP INTERFACE
 async function checkAndRemoveRecentNumbers() {
     try {
         const rawInput = $("#inputNumbersBulk").val();
         if (!rawInput.trim()) {
-            alert("Сначала введите номера телефонов для проверки.");
+            showSimpleMessage("⚠️ Сначала введите номера телефонов для проверки.", "warning");
             return;
         }
         
@@ -146,53 +153,28 @@ async function checkAndRemoveRecentNumbers() {
         });
         
         if (allNumbers.length === 0) {
-            alert("Не найдено валидных номеров телефонов.");
+            showSimpleMessage("❌ Не найдено валидных номеров телефонов.", "error");
             return;
         }
         
         // Check against message history
         const { skipped, toSend } = await getSkippedNumbers(allNumbers);
         
+        // Store data globally for later use
+        checkerData = { allNumbers, skipped, toSend };
+        console.log('💾 Stored checkerData:', checkerData);
+        
         if (skipped.length === 0) {
-            alert(`✅ Отлично! Все ${allNumbers.length} номеров готовы к отправке.\nНикто из них не получал сообщения в последние ${SKIP_DAYS} дня.`);
+            showSuccessMessage(allNumbers.length);
             return;
         }
         
-        // Show detailed results
-        let message = `📊 Результаты проверки:\n\n`;
-        message += `📱 Всего номеров: ${allNumbers.length}\n`;
-        message += `✅ Готовы к отправке: ${toSend.length}\n`;
-        message += `⏭️  Недавно контактировали: ${skipped.length}\n\n`;
-        
-        if (skipped.length > 0) {
-            message += `Номера для удаления (контакт в последние ${SKIP_DAYS} дня):\n`;
-            skipped.forEach((item, index) => {
-                const number = typeof item === 'string' ? item : item.number;
-                message += `${index + 1}. ${number}\n`;
-            });
-            message += `\nУдалить эти номера из списка?`;
-        }
-        
-        const shouldRemove = confirm(message);
-        
-        if (shouldRemove) {
-            // Reconstruct input with only non-skipped numbers
-            const newLines = toSend.map(item => item.originalLine);
-            const newInput = newLines.join('\n');
-            
-            $("#inputNumbersBulk").val(newInput);
-            
-            // Trigger input event to update internal arrays
-            $("#inputNumbersBulk").trigger('input');
-            
-            alert(`✅ Готово!\n\nУдалено: ${skipped.length} номеров\nОсталось: ${toSend.length} номеров\n\nСписок обновлен и готов к отправке.`);
-            
-            console.log(`🧹 Removed ${skipped.length} recent contacts, ${toSend.length} numbers remaining`);
-        }
+        // Show detailed results in popup
+        showCheckerResults(allNumbers.length, toSend.length, skipped);
         
     } catch (error) {
         console.error("❌ Error checking recent numbers:", error);
-        alert("Произошла ошибка при проверке номеров. Попробуйте снова.");
+        showSimpleMessage("❌ Произошла ошибка при проверке номеров. Попробуйте снова.", "error");
     }
 }
 
@@ -1241,3 +1223,210 @@ if (!document.getElementById('tab-animation-styles')) {
     style.textContent = tabClickCSS;
     document.head.appendChild(style);
 }
+
+// Show premium success message
+function showSuccessMessage(totalCount) {
+    const content = `
+        <div class="premium-success-message">
+            <span class="premium-success-icon">✨</span>
+            <div class="premium-success-title">Превосходно!</div>
+            <div class="premium-success-details">
+                Все <strong>${totalCount}</strong> номеров прошли проверку и готовы к отправке.
+            </div>
+            <div class="premium-success-subtitle">
+                Никто из них не получал сообщения в последние ${SKIP_DAYS} дня
+            </div>
+        </div>
+    `;
+    
+    $("#checkerContent").html(content);
+    $("#checkerStatus").text("Анализ завершен");
+    $("#checkerActions").hide();
+    $("#checkerResultsContainer").show();
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+        hideCheckerResults();
+    }, 3000);
+}
+
+// Show premium detailed checker results
+function showCheckerResults(totalCount, readyCount, skippedNumbers) {
+    let content = `
+        <div class="premium-stats-grid">
+            <div class="premium-stat-card">
+                <span class="premium-stat-number total">${totalCount}</span>
+                <span class="premium-stat-label">Всего</span>
+            </div>
+            <div class="premium-stat-card">
+                <span class="premium-stat-number ready">${readyCount}</span>
+                <span class="premium-stat-label">Готовы</span>
+            </div>
+            <div class="premium-stat-card">
+                <span class="premium-stat-number skip">${skippedNumbers.length}</span>
+                <span class="premium-stat-label">Пропустить</span>
+            </div>
+        </div>
+    `;
+    
+    if (skippedNumbers.length > 0) {
+        content += `
+            <div class="premium-numbers-section">
+                <div class="premium-numbers-header">
+                    📋 Номера для удаления (контакт в последние ${SKIP_DAYS} дня)
+                </div>
+                <div class="premium-numbers-list">
+        `;
+        
+        // Add numbers immediately and update with history data
+        skippedNumbers.forEach((item, index) => {
+            const number = typeof item === 'string' ? item : item.number;
+            content += `
+                <div class="premium-number-item" data-number="${number}">
+                    <div class="premium-number-info">${index + 1}. ${number}</div>
+                    <div class="premium-number-days" id="days-${number}">...</div>
+                </div>
+            `;
+        });
+        
+        content += `
+                </div>
+            </div>
+        `;
+        
+        // Update with actual days after rendering
+        setTimeout(async () => {
+            const history = await getMessageHistory();
+            skippedNumbers.forEach((item) => {
+                const number = typeof item === 'string' ? item : item.number;
+                const entry = history[number];
+                const daysSince = entry ? ((Date.now() - entry.lastSent) / (24 * 60 * 60 * 1000)).toFixed(1) : '?';
+                $(`#days-${number}`).text(`${daysSince} дн. назад`);
+            });
+        }, 100);
+    }
+    
+    $("#checkerContent").html(content);
+    $("#checkerStatus").text("Результаты анализа");
+    $("#checkerActions").show();
+    $("#checkerResultsContainer").show();
+}
+
+// Show premium simple message (warning/error)
+function showSimpleMessage(message, type = "info") {
+    const iconMap = {
+        warning: "⚠️",
+        error: "❌",
+        info: "ℹ️",
+        success: "✨"
+    };
+    
+    const colorMap = {
+        error: 'rgba(220, 53, 69, 0.9)',
+        warning: 'rgba(255, 193, 7, 0.9)',
+        success: 'rgba(40, 167, 69, 0.9)',
+        info: 'rgba(55, 114, 255, 0.9)'
+    };
+    
+    const titleMap = {
+        error: 'Ошибка',
+        warning: 'Предупреждение',
+        success: 'Успешно',
+        info: 'Информация'
+    };
+    
+    const content = `
+        <div class="premium-success-message">
+            <span class="premium-success-icon">${iconMap[type] || iconMap.info}</span>
+            <div class="premium-success-title" style="background: linear-gradient(135deg, ${colorMap[type]} 0%, ${colorMap[type]}CC 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">
+                ${titleMap[type] || titleMap.info}
+            </div>
+            <div class="premium-success-details">
+                ${message}
+            </div>
+        </div>
+    `;
+    
+    $("#checkerContent").html(content);
+    $("#checkerStatus").text(titleMap[type] || titleMap.info);
+    $("#checkerActions").hide();
+    $("#checkerResultsContainer").show();
+    
+    // Auto-hide after 4 seconds for warnings/errors
+    if (type === 'warning' || type === 'error') {
+        setTimeout(() => {
+            hideCheckerResults();
+        }, 4000);
+    }
+}
+
+// Hide checker results
+function hideCheckerResults() {
+    $("#checkerResultsContainer").hide();
+    checkerData = { allNumbers: [], skipped: [], toSend: [] };
+}
+
+// Confirm and remove numbers
+function confirmRemoveNumbers() {
+    console.log('🔧 confirmRemoveNumbers called');
+    console.log('📊 checkerData:', checkerData);
+    
+    try {
+        const { skipped, toSend } = checkerData;
+        
+        if (!toSend || toSend.length === 0) {
+            showSimpleMessage("❌ Нет данных для обновления.", "error");
+            return;
+        }
+        
+        // Reconstruct input with only non-skipped numbers
+        const newLines = toSend.map(item => item.originalLine);
+        const newInput = newLines.join('\n');
+        
+        $("#inputNumbersBulk").val(newInput);
+        
+        // Trigger input event to update internal arrays
+        $("#inputNumbersBulk").trigger('input');
+        
+        // Show premium success message
+        const content = `
+            <div class="premium-success-message">
+                <span class="premium-success-icon">🎉</span>
+                <div class="premium-success-title">Операция завершена!</div>
+                <div class="premium-success-details">
+                    <div style="display: flex; gap: 20px; justify-content: center; margin: 16px 0;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: rgba(255, 193, 7, 0.9);">${skipped.length}</div>
+                            <div style="font-size: 12px; color: rgba(255, 255, 255, 0.6);">УДАЛЕНО</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: rgba(40, 167, 69, 0.9);">${toSend.length}</div>
+                            <div style="font-size: 12px; color: rgba(255, 255, 255, 0.6);">ОСТАЛОСЬ</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="premium-success-subtitle">
+                    Список обновлен и оптимизирован для максимальной эффективности
+                </div>
+            </div>
+        `;
+        
+        $("#checkerContent").html(content);
+        $("#checkerActions").hide();
+        
+        console.log(`🧹 Removed ${skipped.length} recent contacts, ${toSend.length} numbers remaining`);
+        
+        // Auto-hide after 2.5 seconds
+        setTimeout(() => {
+            hideCheckerResults();
+        }, 2500);
+        
+    } catch (error) {
+        console.error("❌ Error removing numbers:", error);
+        showSimpleMessage("❌ Произошла ошибка при удалении номеров.", "error");
+    }
+}
+
+// Make functions globally available for HTML onclick handlers
+window.hideCheckerResults = hideCheckerResults;
+window.confirmRemoveNumbers = confirmRemoveNumbers;

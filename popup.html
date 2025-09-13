@@ -128,6 +128,56 @@
                                         🔍 Проверить номера
                                     </button>
                                 </div>
+                                
+                                <!-- Premium Checker Results Interface -->
+                                <div class="mb-3" id="checkerResultsContainer" style="display: none;">
+                                    <div class="premium-checker-container">
+                                        <div class="premium-checker-backdrop"></div>
+                                        <div class="premium-checker-card">
+                                            <div class="premium-header">
+                                                <div class="premium-header-content">
+                                                    <div class="premium-icon-container">
+                                                        <span class="premium-checker-icon">🔍</span>
+                                                        <div class="premium-icon-glow"></div>
+                                                    </div>
+                                                    <div class="premium-title-section">
+                                                        <h3 class="premium-title" id="checkerStatus">Анализ номеров</h3>
+                                                        <div class="premium-subtitle">Проверка дубликатов и оптимизация</div>
+                                                    </div>
+                                                </div>
+                                                <button class="premium-close-btn" onclick="hideCheckerResults()">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                            <div class="premium-content-wrapper">
+                                                <div class="premium-content" id="checkerContent">
+                                                    <!-- Premium results will be populated here -->
+                                                </div>
+                                            </div>
+                                            <div class="premium-actions" id="checkerActions" style="display: none;">
+                                                <div class="premium-action-divider"></div>
+                                                <div class="premium-buttons-container">
+                                                    <button class="premium-btn premium-btn-secondary" onclick="hideCheckerResults()">
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <path d="m15 18-6-6 6-6"/>
+                                                        </svg>
+                                                        Отменить
+                                                    </button>
+                                                    <button class="premium-btn premium-btn-primary" onclick="confirmRemoveNumbers()">
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <polyline points="9,11 12,14 22,4"/>
+                                                            <path d="m21,4-10,10-4-4"/>
+                                                        </svg>
+                                                        Удалить отмеченные
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
 
                                 <div class="pt-2">
                                     <div class="mb-2">
