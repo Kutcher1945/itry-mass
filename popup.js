@@ -695,32 +695,35 @@ function updateProgress(current, total, currentNumber = "") {
 }
 
 window.addEventListener("DOMContentLoaded", async function () {
-    initApp();
+    await initApp();
+
+    // These can run in parallel after init
     sendMsgToActiveTab({
         from: "popup.js",
         subject: MSG_GET_PAGE_URL,
         data: ""
     }).then(url => {
         if (url === "https://web.whatsapp.com" || url === "https://web.whatsapp.com/") {
-            isPageWebWhatsapp = true
+            isPageWebWhatsapp = true;
         }
-        updateView()
-    });
+        updateView();
+    }).catch(() => { /* not on WhatsApp tab yet */ });
+
     sendMsgToActiveTab({
         from: "popup.js",
         subject: MSG_GET_USER_PHONENUMBER,
         data: ""
     }).then(phoneNumber => {
         authPhoneNumber = phoneNumber;
-        updateView()
-    })
+        updateView();
+    }).catch(() => { /* ignore */ });
 });
 async function initApp() {
     await initBulkMessageTab();
     await initIndividualMessageTab();
     updateView();
     addEventListeners();
-
+    initStatsTab();
 }
 
 async function initSingleMessageTab() {
@@ -731,6 +734,23 @@ async function initSingleMessageTab() {
 async function initBulkMessageTab() {
     phoneNumbersBulk = await storageInstance.getPhoneNumbersBulk();
     msgBulk = await storageInstance.getCurrentMessageBulk();
+
+    // Rebuild phoneNumberSendToBulk from stored lines (same logic as input handler)
+    phoneNumberSendToBulk = [];
+    for (let i = 0; i < phoneNumbersBulk.length; i++) {
+        const line = (phoneNumbersBulk[i] || '').trim();
+        if (!line) continue;
+        const splitedValue = line.split(",");
+        const phoneNumber = splitedValue[0] ? splitedValue[0].trim().replace('+', '') : '';
+        if (phoneNumber && phoneNumber.replace(/\D/g, '').length >= 7) {
+            phoneNumberSendToBulk.push({
+                number:   phoneNumber,
+                valueOne: splitedValue[1] ? splitedValue[1].trim() : '',
+                valueTwo: splitedValue[2] ? splitedValue[2].trim() : ''
+            });
+        }
+    }
+    console.log(`🔄 initBulkMessageTab: restored ${phoneNumberSendToBulk.length} valid numbers`);
 }
 
 async function initIndividualMessageTab() {
@@ -798,8 +818,15 @@ function updateIndividualMessageView() {
 async function sendToBulkOneByOne(data, msgBulk, baseDelay, useVariations = false) {
     console.log(`🚀 Starting one-by-one send for ${data.length} messages`);
     console.log(`💡 Tip: Use "🔍 Проверить номера" button to remove recently contacted numbers before sending`);
-    
+
     stopSendingBulk = false;
+
+    // Reset risk session at the start of each bulk send
+    if (window.riskEngine) {
+        window.riskEngine.reset();
+        window.riskEngine.getStats().then(updateRiskUI);
+    }
+
     showProgress(0, data.length);
     
     // Show stop button and hide send button
@@ -850,6 +877,45 @@ async function sendToBulkOneByOne(data, msgBulk, baseDelay, useVariations = fals
                 break;
             }
 
+            // ---- Risk check ----
+            let dynamicDelay = baseDelay;
+            if (window.riskEngine) {
+                const risk = await window.riskEngine.check(data[i].number);
+                window.riskEngine.getStats().then(updateRiskUI);
+
+                if (risk.shouldStop) {
+                    console.warn(`[RiskEngine] HARD STOP — reason=${risk.reason}`);
+                    if (risk.reason === 'daily_limit') {
+                        showSimpleMessage(
+                            `🚫 ${risk.detail} — продолжите завтра.`,
+                            "error"
+                        );
+                    } else {
+                        showSimpleMessage(
+                            `⛔ Risk score ${risk.score}/100 — слишком много новых контактов подряд. Сделайте паузу и попробуйте позже.`,
+                            "error"
+                        );
+                    }
+                    break;
+                }
+
+                // Daily warn threshold (not a stop, just a heads-up)
+                const stats = window.riskEngine.getStats ? await window.riskEngine.getStats() : null;
+                if (stats && stats.sentToday >= stats.dailyWarnLimit && stats.sentToday < stats.dailyLimit) {
+                    showSimpleMessage(
+                        `⚠️ Сегодня отправлено ${stats.sentToday} сообщений — осталось ${stats.dailyRemaining} до лимита`,
+                        "warning"
+                    );
+                } else if (risk.level === 'MEDIUM') {
+                    showSimpleMessage(
+                        `⚠️ Risk score ${risk.score}/100 — замедляю темп отправки`,
+                        "warning"
+                    );
+                }
+
+                dynamicDelay = risk.delay ?? baseDelay;
+            }
+
             // Update progress before sending (show current message being processed)
             updateProgress(i + 1, data.length, data[i].number);
 
@@ -897,9 +963,9 @@ async function sendToBulkOneByOne(data, msgBulk, baseDelay, useVariations = fals
 
             // Wait before next message (except for the last one) but check for stop during wait
             if (i < data.length - 1 && !stopSendingBulk) {
-                // Add random delay between messages (balanced)
-                const randomDelay = getRandomDelay(1500, 3500);
-                console.log(`⏰ Waiting ${randomDelay}ms before next message (balanced delay)...`);
+                // Use dynamic delay from risk engine (or fallback)
+                const randomDelay = dynamicDelay ?? getRandomDelay(2000, 5000);
+                console.log(`⏰ Waiting ${randomDelay}ms before next message (risk-based delay)...`);
                 
                 // Break the delay into smaller chunks to check for stop more frequently
                 const checkInterval = 500; // Check every 500ms
@@ -926,7 +992,7 @@ async function sendToBulkOneByOne(data, msgBulk, baseDelay, useVariations = fals
         chrome.runtime.onMessage.removeListener(progressListener);
         
         // Reset UI
-        $("#stopSending").hide();
+        $("#stopSending").hide().prop("disabled", false).text("Остановить");
         $("#sendMessageBulk").show();
         stopSendingBulk = false;
         
@@ -964,7 +1030,7 @@ function addEventListenersBulkMessageView() {
         phoneNumbersBulk = rawInput.split("\n");
         phoneNumberSendToBulk = [];
 
-        for (i = 0; i < phoneNumbersBulk.length; i++) {
+        for (let i = 0; i < phoneNumbersBulk.length; i++) {
             const line = phoneNumbersBulk[i].trim();
             if (!line) continue; // Skip empty lines
             
@@ -1017,7 +1083,7 @@ function addEventListenersBulkMessageView() {
             const csvData = event.target.result.split("\n");
             phoneNumberSendToBulk = [];
 
-            for (i = 0; i < csvData.length; i++) {
+            for (let i = 0; i < csvData.length; i++) {
                 const splitedValue = csvData[i].split(",");
                 if (splitedValue[0]) {
                     const data = {
@@ -1094,7 +1160,7 @@ async function sendMessageToIndividual(index, data, msgIndividual, delay) {
         hideTypingAnimation(); // Hide animation on error
     } finally {
         // Reset UI
-        $("#stopSendingIndividual").hide();
+        $("#stopSendingIndividual").hide().prop("disabled", false).text("Остановить");
         $("#sendMessageIndividual").show();
         stopSendingIndividual = false;
     }
@@ -1142,7 +1208,7 @@ function addEventListenersIndividualMessageView() {
         var messageValue = document.getElementById("inputMessageBulk");
         var startPosition = messageValue.selectionStart;
         var endPosition = messageValue.selectionEnd;
-        textWithValueOne = '@valueOne';
+        const textWithValueOne = '@valueOne';
         var fullString = messageValue.value.substring(0, startPosition) +
             textWithValueOne +
             messageValue.value.substring(endPosition, messageValue.value.length);
@@ -1180,22 +1246,22 @@ function addEventListenersClearAllFields() {
     $("#clearAllFieldsIndividual").click(async function () {
         document.getElementById("individualMessageTabPhoneNumber").value = '';
         document.getElementById("inputIndividualMessage").value = '';
-        phoneNumberIndividual = '';
+        phoneNumberIndividual = [];
         msgIndividual = '';
         await storageInstance.savePhoneNumbersIndividual(phoneNumberIndividual);
         await storageInstance.saveCurrentMessageIndividual(msgIndividual);
-        delay = '';
     });
 
     $("#clearAllFieldsBulk").click(async function () {
         document.getElementById("inputNumbersBulk").value = '';
         document.getElementById("inputMessageBulk").value = '';
         document.getElementById("inputUploadNumbers").value = '';
-        phoneNumbersBulk = '';
+        phoneNumbersBulk = [];
+        phoneNumberSendToBulk = [];
         msgBulk = '';
         await storageInstance.savePhoneNumbersBulk(phoneNumbersBulk);
         await storageInstance.saveCurrentMessageBulk(msgBulk);
-        delay = '';
+        updateView();
     });
 }
 
@@ -1625,3 +1691,131 @@ function addCheckerEventListeners() {
 // Make functions globally available for HTML onclick handlers (backup)
 window.hideCheckerResults = hideCheckerResults;
 window.confirmRemoveNumbers = confirmRemoveNumbers;
+
+// ============================================================
+//  STATISTICS TAB
+// ============================================================
+
+async function refreshStatsTab() {
+    if (!window.riskEngine) return;
+    const stats   = await window.riskEngine.getStats();
+    const history = await window.riskEngine.getFullHistory();
+
+    // Daily card
+    const dailyPct = Math.min(100, Math.round((stats.sentToday / stats.dailyLimit) * 100));
+    const barColor  = dailyPct >= 100 ? '#dc3545' : dailyPct >= 67 ? '#ffc107' : '#28a745';
+
+    $('#statSentToday').text(stats.sentToday);
+    $('#statDailyLimit').text(`/ ${stats.dailyLimit} лимит`);
+    $('#statDailyBar').css({ width: dailyPct + '%', background: barColor });
+    $('#statDailyRemaining').text(`Осталось: ${stats.dailyRemaining}`);
+
+    if (stats.isWarmup) {
+        $('#statWarmupBadge').show();
+        $('#statWarmupDay').text(`День ${stats.warmupDay} прогрева`);
+    } else {
+        $('#statWarmupBadge').hide();
+        $('#statWarmupDay').text('');
+    }
+
+    // Session card
+    const scoreColor = stats.level === 'HIGH' ? '#dc3545' : stats.level === 'MEDIUM' ? '#ffc107' : '#28a745';
+    $('#statScore').text(stats.score).css('color', scoreColor);
+    $('#statNewRatio').text(Math.round(stats.newContactRatio * 100) + '%');
+    $('#statMsgPerHour').text(Math.round(stats.msgPerHour));
+    $('#statSessionMin').text(stats.sessionMinutes);
+
+    // History list
+    const entries = Object.entries(history)
+        .sort((a, b) => b[1].lastSent - a[1].lastSent)
+        .slice(0, 50); // show last 50
+
+    if (entries.length === 0) {
+        $('#statsHistoryList').html('<div class="stats-empty">История пуста</div>');
+    } else {
+        const rows = entries.map(([number, data]) => {
+            const date = new Date(data.lastSent);
+            const dateStr = `${date.getDate().toString().padStart(2,'0')}.${(date.getMonth()+1).toString().padStart(2,'0')} ${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
+            return `
+                <div class="stats-history-row">
+                    <span class="stats-history-number">+${number}</span>
+                    <span class="stats-history-count">${data.count}x</span>
+                    <span class="stats-history-date">${dateStr}</span>
+                </div>`;
+        }).join('');
+        $('#statsHistoryList').html(rows);
+    }
+}
+
+function exportHistoryCSV() {
+    window.riskEngine.getFullHistory().then(history => {
+        const entries = Object.entries(history)
+            .sort((a, b) => b[1].lastSent - a[1].lastSent);
+
+        if (entries.length === 0) {
+            showSimpleMessage('История пуста — нечего экспортировать', 'warning');
+            return;
+        }
+
+        const header = 'Номер,Количество отправок,Последняя отправка,Сообщение\n';
+        const rows = entries.map(([number, data]) => {
+            const date = new Date(data.lastSent).toLocaleString('ru-RU');
+            const msg  = (data.message || '').replace(/,/g, ';').replace(/\n/g, ' ');
+            return `+${number},${data.count},"${date}","${msg}"`;
+        }).join('\n');
+
+        const blob = new Blob(['\uFEFF' + header + rows], { type: 'text/csv;charset=utf-8;' });
+        const url  = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href     = url;
+        link.download = `itry_history_${new Date().toISOString().slice(0,10)}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+    });
+}
+
+function initStatsTab() {
+    // Refresh when tab is clicked
+    $('#stats-tab').on('shown.bs.tab', refreshStatsTab);
+
+    // Export CSV
+    $(document).on('click', '#btnExportCSV', exportHistoryCSV);
+
+    // Clear history
+    $(document).on('click', '#btnClearHistory', async function() {
+        if (!confirm('Очистить всю историю контактов?')) return;
+        await new Promise(resolve => chrome.storage.local.remove('KEY_MESSAGE_HISTORY', resolve));
+        await refreshStatsTab();
+        showSimpleMessage('История очищена', 'success');
+    });
+}
+
+// ---- Risk Engine UI updater ----
+function updateRiskUI(stats) {
+    if (!stats) return;
+
+    const levelColors = { LOW: '#28a745', MEDIUM: '#ffc107', HIGH: '#dc3545' };
+    const levelLabels = { LOW: 'Норма', MEDIUM: 'Осторожно', HIGH: 'Стоп' };
+    const color = levelColors[stats.level] || '#6c757d';
+    const label = levelLabels[stats.level] || stats.level;
+    const ratio = Math.round(stats.newContactRatio * 100);
+
+    const html = `
+        <div class="risk-bar-container">
+            <div class="risk-bar-header">
+                <span>Risk Score</span>
+                <span style="color:${color}; font-weight:600;">${stats.score}/100 — ${label}</span>
+            </div>
+            <div class="risk-bar-track">
+                <div class="risk-bar-fill" style="width:${stats.score}%; background:${color};"></div>
+            </div>
+            <div class="risk-bar-stats">
+                <span>Новых: ${stats.newContacts} (${ratio}%)</span>
+                <span>Повторных: ${stats.repeatContacts}</span>
+                <span>${stats.msgPerHour.toFixed(0)} msg/h</span>
+            </div>
+        </div>
+    `;
+
+    $('#riskIndicator').html(html).show();
+}

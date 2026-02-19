@@ -13,6 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="jquery.min.js"></script>
     <link rel="stylesheet" href="style.css">
+    <script src="risk_engine.js"></script>
     <script src="popup.js"></script>
     <script src="bootstrap.min.js"></script>
     <!-- <script src="content.js"></script> -->
@@ -64,6 +65,10 @@
                             <li class="nav-item">
                                 <a class="nav-link font-weight-bold" id="bulk-tab" data-toggle="tab" href="#bulkMessage"
                                     role="tab" aria-controls="bulkMessage" aria-selected="false">Рассылка</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link font-weight-bold" id="stats-tab" data-toggle="tab" href="#stats"
+                                    role="tab" aria-controls="stats" aria-selected="false">Статистика</a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link font-weight-bold" id="info-tab" data-toggle="tab" href="#info"
@@ -230,6 +235,9 @@
                                     </div>
                                 </div>
 
+                                <!-- Risk Indicator — shown during send -->
+                                <div id="riskIndicator" style="display:none; margin-bottom: 12px;"></div>
+
                                 <div class="btn-container">
                                     <button class="btn btn-outline-52BAD3" id="clearAllFieldsBulk">Очистить</button>
                                     <button class="btn btn-info" id="sendMessageBulk">Отправить</button>
@@ -238,6 +246,70 @@
 
                             </div>
                             <!-- tab Bulk Messages End-->
+                            <!-- tab Statistics -->
+                            <div class="tab-pane" id="stats">
+                                <div class="stats-container">
+
+                                    <!-- Daily progress -->
+                                    <div class="stats-card">
+                                        <div class="stats-card-title">Сегодня</div>
+                                        <div class="stats-daily-row">
+                                            <div class="stats-big-number" id="statSentToday">—</div>
+                                            <div class="stats-daily-meta">
+                                                <span id="statDailyLimit">/ — лимит</span>
+                                                <span id="statWarmupBadge" class="warmup-badge" style="display:none;">Warmup</span>
+                                            </div>
+                                        </div>
+                                        <div class="stats-bar-track">
+                                            <div class="stats-bar-fill" id="statDailyBar" style="width:0%"></div>
+                                        </div>
+                                        <div class="stats-bar-label">
+                                            <span id="statDailyRemaining">Осталось: —</span>
+                                            <span id="statWarmupDay"></span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Session stats -->
+                                    <div class="stats-card">
+                                        <div class="stats-card-title">Текущая сессия</div>
+                                        <div class="stats-grid-4">
+                                            <div class="stats-cell">
+                                                <div class="stats-cell-value" id="statScore">0</div>
+                                                <div class="stats-cell-label">Risk Score</div>
+                                            </div>
+                                            <div class="stats-cell">
+                                                <div class="stats-cell-value" id="statNewRatio">0%</div>
+                                                <div class="stats-cell-label">Новых</div>
+                                            </div>
+                                            <div class="stats-cell">
+                                                <div class="stats-cell-value" id="statMsgPerHour">0</div>
+                                                <div class="stats-cell-label">msg/h</div>
+                                            </div>
+                                            <div class="stats-cell">
+                                                <div class="stats-cell-value" id="statSessionMin">0</div>
+                                                <div class="stats-cell-label">мин</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Contact history -->
+                                    <div class="stats-card">
+                                        <div class="stats-card-title-row">
+                                            <span class="stats-card-title">История контактов</span>
+                                            <button class="stats-export-btn" id="btnExportCSV">Экспорт CSV</button>
+                                        </div>
+                                        <div class="stats-history-list" id="statsHistoryList">
+                                            <div class="stats-empty">Загрузка...</div>
+                                        </div>
+                                        <div class="stats-history-footer">
+                                            <button class="stats-clear-btn" id="btnClearHistory">Очистить историю</button>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                            <!-- tab Statistics End -->
+
                             <div class="tab-pane info-tab-content" id="info">
                                 <div class="info-container">
                                     <!-- Header Section -->
